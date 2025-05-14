@@ -75,22 +75,28 @@ if __name__ == "__main__":
         # logger.debug(f"SS_read_data result: {read_data_result}")
 
 # ---
-#       
+# Sys commands  
         # OM_entry._Cmd_SetMnfID()
 
         # CB_resp = OM_entry.CANWrp_ReadCB()
         # logger.info(f"Current CB: {CB_resp}")
 
-        resp = OM_entry.Data_GetNonCanCurrBlock()
-        logger.info(resp)
+        # resp = OM_entry.Data_GetNonCanCurrBlock()
+        # logger.info(resp)
 
-        resp = OM_entry.Data_GetFWVer()
-        logger.info(resp)
+        # resp = OM_entry.Data_GetFWVer()
+        # logger.info(resp)
 
-        resp = OM_entry.Data_GetMnfID()
-        logger.info(resp)
+        # resp = OM_entry.Data_GetMnfID()
+        # logger.info(resp)
+# ---
 
+        resp = OM_entry.CANWrp_ReadCB()
+        logger.info(f"Current CB: {resp}")
 
+        # resp = OM_entry.Blt_SetPref(pref=0)
+        # logger.info(resp)
+        # todo: Parse status of ans
     except Exception as e:
         print(e)
 

@@ -106,7 +106,6 @@ def OM_build_CANWrp_WriteWrappedCmd(CAN_num: int = 1, DevID: int = 0, VarID: int
     else:
         data = data[0:length]
         pack.extend(data)
-
     return pack
 
 def OM_Parse_CANEmWrap(pack: list = []):
@@ -169,6 +168,14 @@ def OM_ParseFlashStruct(data: list, type: FlashCB_Type):
 
 def OM_build_BltSetPref(pref: int):
     pref = pref & 0x01
+    size = 0
+    cmd = 0x0A | pref
+    crc = 0
+
+    pack = [(size & 0xFF), ((size >> 8) & 0xFF), ((size >> 16) & 0xFF), cmd, 
+            (crc & 0xFF), ((crc >> 8) & 0xFF), ((crc >> 16) & 0xFF), ((crc >> 24) & 0xFF)]
+
+    return pack
 
 
 

@@ -280,6 +280,8 @@ class OM_Interface:
         return self._parse_response(response)
 
 
+
+
     def _CANWrp_ExecCmd(self, VarID: int = 14, Offset : int = 0, RTR: int = 1, data: list = [], DLen: int = 0):
         pack = OM_build_CANWrp_WriteWrappedCmd(VarID=VarID, Offset=Offset, RTR=RTR, data=data, DLen=DLen)
         registers = PackToRegisters(pack=pack)
@@ -318,7 +320,23 @@ class OM_Interface:
         return response
 
 
-    def Blt_SetPref(self, pref: int = 0):
-        pass
 
+    def Blt_SetPref(self, pref: int = 0):
+        int_pack = OM_build_BltSetPref(pref)
+        print(int_pack)
+        pack = OM_build_CANWrp_WriteWrappedCmd(VarID=14, Offset=0x00080000, RTR=0, data=int_pack, DLen=len(int_pack))
+        registers = PackToRegisters(pack=pack)
+
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_BOOT_REG_ADDR+OM_CAN_STR_OFF, registers=registers)
+        logger.debug(f"Sending CANEm command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        if "error" in response:
+            return {"error": response["error"]}
+
+        response = self._CANWrp_ExecCmd(Offset = 0x00080000, RTR = 1)
+        if "data" in response:
+            CANNum, TypeID, DLen, data_resp = response["data"].values()
+            parsed_data = OM_ParseFlashStruct(data=data_resp, type=FlashCB_Type.INFO)
+            response["data"] = parsed_data
+        return response
 
