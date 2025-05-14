@@ -13,8 +13,8 @@ OM_CMD_OFF          = 0
 OM_STATUS_OFF       = 10
 OM_STATUS_LEN       = 8
 
-OM_FW_WER_OFF       = 20
-OM_FW_WER_LEN       = 3
+OM_FW_VER_OFF       = 20
+OM_FW_VER_LEN       = 3
 
 OM_CUR_REGION_OFF   = 23
 OM_CUR_REGION_LEN   = 1

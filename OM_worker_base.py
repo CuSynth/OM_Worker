@@ -182,16 +182,16 @@ class OM_Interface:
             logger.error(f"Unknown request type: {request_type}")
             raise ValueError("Unknown request type")
 
-    def _parse_response(self, response):
-        if "error" in response:
-            return {"error": response["error"]}
-        elif "data" in response:
-            return {"data": response["data"]}
-        elif "status" in response:
-            return {"status": response["status"]}
-        else:
-            logger.warning(f"Unknown response format: {response}")
-            return {"error": "Unknown response format"}
+    # def _parse_response(self, response):
+    #     if "error" in response:
+    #         return {"error": response["error"]}
+    #     elif "data" in response:
+    #         return {"data": response["data"]}
+    #     elif "status" in response:
+    #         return {"status": response["status"]}
+    #     else:
+    #         logger.warning(f"Unknown response format: {response}")
+    #         return {"error": "Unknown response format"}
 
 
 
@@ -201,7 +201,7 @@ class OM_Interface:
         command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
         logger.debug(f"Sending reboot command: {command.__dict__}")
         response = self.modbus_worker.send_request(command)
-        return self._parse_response(response)
+        return response
 
     def Cmd_SetDevID(self, ID : int):
         pack = OM_build_set_DevID(ID)
@@ -209,7 +209,7 @@ class OM_Interface:
         command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
         logger.debug(f"Sending SetDevID command: {command.__dict__}")
         response = self.modbus_worker.send_request(command)
-        return self._parse_response(response)
+        return response
 
     def Cmd_SSTake(self):
         pack = OM_build_cmd_SS_take()
@@ -217,8 +217,49 @@ class OM_Interface:
         command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
         logger.debug(f"Sending SSTake command: {command.__dict__}")
         response = self.modbus_worker.send_request(command)
-        return self._parse_response(response)
+        return response
 
+    def _Cmd_SetMnfID(self):
+        pack = [0x1F, 0x00, 0x02, 0x00, 0x10, 0x00, 0x01, 0x00]
+        registers = PackToRegisters(pack)
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
+        logger.debug(f"Sending SSTake command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        return response
+
+
+
+    def Data_GetFWVer(self):
+        command = self._build_command(ModbusRequestType.READ, OM_CMD_REG_ADDR+OM_FW_VER_OFF, count=OM_FW_VER_LEN)
+        response = self.modbus_worker.send_request(command, timeout=1)
+        logger.debug(f"Getting FW version data: {command.__dict__}")
+        
+        if "data" in response:
+            data = RegistersToPack(response["data"])
+            response["data"] = {"FW version": OM_FWVer_parse(data)}
+        return response
+
+    def Data_GetMnfID(self):
+        command = self._build_command(ModbusRequestType.READ, OM_CMD_REG_ADDR+OM_MNF_ID_OFF, count=OM_MNF_ID_LEN)
+        response = self.modbus_worker.send_request(command, timeout=1)
+        logger.debug(f"Getting  mnf ID data: {command.__dict__}")
+        
+        if "data" in response:
+            data = RegistersToPack(response["data"])
+            response["data"] = {"MnfID": OM_MnfID(data)}
+        return response
+
+
+
+    def Data_GetNonCanCurrBlock(self):
+        command = self._build_command(ModbusRequestType.READ, OM_CMD_REG_ADDR+OM_CUR_REGION_OFF, count=OM_CUR_REGION_LEN)
+        response = self.modbus_worker.send_request(command, timeout=1)
+        logger.debug(f"Getting CurSect data: {command.__dict__}")
+        
+        if "data" in response:
+            data = RegistersToPack(response["data"])
+            response["data"] = {"Current sector": data[0]}
+        return response
 
 
     def Data_GetSS(self, blocking=True, timeout=1):
@@ -240,7 +281,7 @@ class OM_Interface:
 
 
     def _CANWrp_ExecCmd(self, VarID: int = 14, Offset : int = 0, RTR: int = 1, data: list = [], DLen: int = 0):
-        pack = OM_build_CANEm_WriteWrappedCmd(VarID=VarID, Offset=Offset, RTR=RTR, data=data, DLen=DLen)
+        pack = OM_build_CANWrp_WriteWrappedCmd(VarID=VarID, Offset=Offset, RTR=RTR, data=data, DLen=DLen)
         registers = PackToRegisters(pack=pack)
 
         command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_BOOT_REG_ADDR+OM_CAN_STR_OFF, registers=registers)
@@ -275,5 +316,9 @@ class OM_Interface:
             parsed_data = OM_ParseFlashStruct(data=data_resp, type=FlashCB_Type.INFO)
             response["data"] = parsed_data
         return response
+
+
+    def Blt_SetPref(self, pref: int = 0):
+        pass
 
 

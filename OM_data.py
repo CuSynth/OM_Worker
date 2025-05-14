@@ -31,8 +31,6 @@ def OM_BuildCmd_Reboot():
 
     return pack
 
-
-
 def OM_build_cmd_SS_take():
     return [0x21]
 
@@ -45,6 +43,21 @@ def OM_build_set_DevID(ID : int = 2):
     pack.extend(data)
 
     return pack
+
+
+
+def OM_FWVer_parse(Pack: list = []):
+    if len(Pack) != OM_FW_VER_LEN * 2:
+        return None
+    
+    patch, minor, major  = struct.unpack("<HHH", bytes(Pack))
+    return  f"{major}.{minor}.{patch}"
+    # return {"Major" : major, "Minor" : minor, "Patch" : patch}
+
+def OM_MnfID(Pack: list):
+    return f"{Pack[3]:02x}{Pack[2]:02x}{Pack[1]:02x}{Pack[0]:02x}"
+
+
 
 def OM_SS_parse(registers: list = []):
     if(len(registers) != OM_SS_DATA_LEN):
@@ -73,9 +86,10 @@ def OM_parse_DevID(registers: list = []):
 
     return {"DevID" : ID}
     
+# -------------
+# Bootldr logic
 
-
-def OM_build_CANEm_WriteWrappedCmd(CAN_num: int = 1, DevID: int = 0, VarID: int = 14, Offset : int = 0, RTR: int = 1, data: list = [], DLen: int = 0):
+def OM_build_CANWrp_WriteWrappedCmd(CAN_num: int = 1, DevID: int = 0, VarID: int = 14, Offset : int = 0, RTR: int = 1, data: list = [], DLen: int = 0):
     RTR = RTR & 0x01
     if CAN_num > 2 or CAN_num < 0 or VarID != 14:
         return None
@@ -151,3 +165,11 @@ def OM_ParseFlashStruct(data: list, type: FlashCB_Type):
         return {"Size" : size, "Cmd" : cmd, "CRC" : crc}
     else:
         return {"error" : "Unknown type"}
+
+
+def OM_build_BltSetPref(pref: int):
+    pref = pref & 0x01
+
+
+
+

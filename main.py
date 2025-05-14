@@ -53,31 +53,42 @@ if __name__ == "__main__":
         # read_data_result = OM_entry.SS_read_data()
         # logger.debug(f"SS_read_data result: {read_data_result}")
 # ---
-# 
+# Flash sector readout example
+        # flash_frag = []
+        # for i in range(0, 64, 8):
+        #     Flash_resp = OM_entry.CANWrp_ReadFlashFrag(i)
+        #     if "data" in Flash_resp:
+        #         flash_frag.extend(Flash_resp["data"])
+        #     else:
+        #         logger.error(f"Err occured at {i}: {Flash_resp}")
+        #         break
+
+        # # flash_frag contains bytes. Print them as 32-bit hexes with 0 at the beginning if needed
+        # for i in range(0, len(flash_frag), 4):
+        #     val = (int.from_bytes(flash_frag[i]) << 24) | (int.from_bytes(flash_frag[i+1]) << 16) | (int.from_bytes(flash_frag[i+2]) << 8) | int.from_bytes(flash_frag[i+3])
+        #     print(f"{val:08X}")
+
+
         # take_data_result = OM_entry.SS_take_data()
         # logger.debug(f"SS_take_data result: {take_data_result}")
         # read_data_result = OM_entry.SS_read_data()
         # logger.debug(f"SS_read_data result: {read_data_result}")
 
-        CB_resp = OM_entry.CANWrp_ReadCB()
-        logger.debug(f"Current CB: {CB_resp}")
+# ---
+#       
+        # OM_entry._Cmd_SetMnfID()
 
+        # CB_resp = OM_entry.CANWrp_ReadCB()
+        # logger.info(f"Current CB: {CB_resp}")
 
-        flash_frag = []
-        for i in range(0, 64, 8):
-            Flash_resp = OM_entry.CANWrp_ReadFlashFrag(i)
-            if "data" in Flash_resp:
-                flash_frag.extend(Flash_resp["data"])
-            else:
-                logger.error(f"Err occured at {i}: {Flash_resp}")
-                break
+        resp = OM_entry.Data_GetNonCanCurrBlock()
+        logger.info(resp)
 
-        # flash_frag contains bytes. Print them as 32-bit hexes with 0 at the beginning if needed
-        for i in range(0, len(flash_frag), 4):
-            val = (int.from_bytes(flash_frag[i]) << 24) | (int.from_bytes(flash_frag[i+1]) << 16) | (int.from_bytes(flash_frag[i+2]) << 8) | int.from_bytes(flash_frag[i+3])
-            print(f"{val:08X}")
-                        
+        resp = OM_entry.Data_GetFWVer()
+        logger.info(resp)
 
+        resp = OM_entry.Data_GetMnfID()
+        logger.info(resp)
 
 
     except Exception as e:
