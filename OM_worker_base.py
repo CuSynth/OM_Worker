@@ -1,0 +1,279 @@
+import threading
+import time
+import queue
+from enum import Enum
+import struct
+from pymodbus.client import ModbusSerialClient as ModbusClient
+from loguru import logger
+from pymodbus.exceptions import ConnectionException
+from OM_registers import *
+from OM_data import *
+
+class ModbusRequestType(Enum):
+    READ = 1
+    WRITE_SINGLE = 2
+    WRITE_MULTY = 3
+
+class ModbusRequest:
+    def __init__(self, type: ModbusRequestType, address: int, count: int = 0, registers: list =[], slave_id: int = 1):
+        self.type = type
+        self.address = address
+        self.count = count
+        self.registers = registers
+        self.slave_id = slave_id
+
+
+def PackToRegisters(pack:list = []):
+    if len(pack) % 2 != 0:
+        pack.append(0x00)    
+    registers = [((pack[i+1] << 8) | (pack[i])) for i in range(0, len(pack), 2)]
+    return registers
+
+# Reversed func: turns registers to array of bytes
+def RegistersToPack(registers: list = []):
+    # pack = []
+    # for reg in registers:
+    #     pack.append(reg & 0xFF)
+    #     pack.append((reg >> 8) & 0xFF)
+    # Use of struct.pack needed
+    pack = []
+    for reg in registers:
+        pack.extend(struct.pack(">H", reg))
+        
+    return pack
+    
+
+class ModbusWorker(threading.Thread):
+    def __init__(self, port, baudrate, stopbits, parity, bytesize, timeout=1):
+        super().__init__()
+        self.port = port
+        self.baudrate = baudrate
+        self.stopbits = stopbits
+        self.parity = parity
+        self.bytesize = bytesize
+        self.timeout = timeout
+        self.request_queue = queue.Queue(maxsize=100)
+        self.response_queue = queue.Queue()
+        self.running = False
+        self.client = None
+
+    def connect(self):
+        try:
+            self.client = ModbusClient(
+                port=self.port,
+                baudrate=self.baudrate,
+                stopbits=self.stopbits,
+                parity=self.parity,
+                bytesize=self.bytesize,
+                timeout=self.timeout,
+            )
+            self.client.connect()
+            logger.info(f"Connected to Modbus on {self.port}")
+            return True
+        except ConnectionException as e:
+            print(f"Failed to connect to Modbus: {e}")
+            return False
+
+    def disconnect(self):
+        if self.client:
+            self.client.close()
+            logger.info(f"Disconnected from Modbus on {self.port}")
+
+    def run(self):
+        if not self.connect():
+            return
+
+        self.running = True
+        while self.running:
+            try:
+                request = self.request_queue.get(timeout=1)
+                if request is None:
+                    continue
+                logger.debug(f"Processing request: {request.__dict__}")
+                response = self.handle_request(request)
+                logger.debug(f"Received response: {response}")
+                self.response_queue.put(response)
+            except queue.Empty:
+                pass
+
+        self.disconnect()
+
+    def stop(self):
+        self.running = False
+        self.request_queue.put(None)
+        self.join()
+
+    def handle_request(self, request):
+        if request.type == ModbusRequestType.READ:
+            logger.debug(f"Sending READ request to address {request.address}, count {request.count}, slave {request.slave_id}")
+            try:
+                result = self.client.read_holding_registers(
+                    request.address, count=request.count, slave=request.slave_id
+                )
+                if result.isError():
+                    return {"error": str(result)}
+                return {"data": result.registers}
+            except Exception as e:
+                return {"error": str(e)}
+        elif request.type == ModbusRequestType.WRITE_MULTY:
+            logger.debug(f"Sending WRITE request to address {request.address}, value {request.registers}, slave {request.slave_id}")
+            try:
+                result = self.client.write_registers(
+                    request.address, request.registers, slave=request.slave_id
+                )
+                if result.isError():
+                    return {"error": str(result)}
+                return {"status": "success"}
+            except Exception as e:
+                return {"error": str(e)}
+        elif request.type == ModbusRequestType.WRITE_SINGLE:
+            logger.error("Unsupported!")
+            return {"error": "Unsupported"}
+        
+            logger.debug(f"Sending WRITE request to address {request.address}, value {request.registers}, slave {request.slave_id}")
+            try:
+                result = self.client.write_registers(
+                    request.address, request.registers, slave=request.slave_id
+                )
+                if result.isError():
+                    return {"error": str(result)}
+                return {"status": "success"}
+            except Exception as e:
+                return {"error": str(e)}
+        else:
+            logger.error(f"Unknown request type: {request.type}")
+            return {"error": "Unknown request type"}
+
+    def send_request(self, request, blocking=True, timeout=5):
+        self.request_queue.put(request)
+        if blocking:
+            start_time = time.time()
+            while True:
+                try:
+                    response = self.response_queue.get(timeout=0.1)
+                    return response
+                except queue.Empty:
+                    if time.time() - start_time > timeout:
+                        logger.warning(f"Request timed out after {timeout} seconds")
+                        return {"error": "Timeout"}
+        else:
+            return None
+
+
+class OM_Interface:
+    def __init__(self, modbus_worker, slave_id=1):
+        self.modbus_worker = modbus_worker
+        self.slave_id = slave_id
+        logger.info(f"Initialized OM Interface with slave ID: {slave_id}")
+
+    def _build_command(self, request_type, address, count=0, registers:list = [], reversed_registers:bool=True):
+        if request_type == ModbusRequestType.WRITE_MULTY:
+            if reversed_registers:
+                registers = [(((reg & 0x00FF) << 8) | ((reg >> 8) & 0x00FF)) for reg in registers]
+            
+            return ModbusRequest(
+                type=ModbusRequestType.WRITE_MULTY, address=address, registers=registers, slave_id=self.slave_id
+            )
+        elif request_type == ModbusRequestType.READ:
+            return ModbusRequest(
+                type=ModbusRequestType.READ, address=address, count=count, slave_id=self.slave_id
+            )
+        else:
+            logger.error(f"Unknown request type: {request_type}")
+            raise ValueError("Unknown request type")
+
+    def _parse_response(self, response):
+        if "error" in response:
+            return {"error": response["error"]}
+        elif "data" in response:
+            return {"data": response["data"]}
+        elif "status" in response:
+            return {"status": response["status"]}
+        else:
+            logger.warning(f"Unknown response format: {response}")
+            return {"error": "Unknown response format"}
+
+
+
+    def Cmd_ForceReboot(self):
+        pack = OM_BuildCmd_Reboot()
+        registers = PackToRegisters(pack)
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
+        logger.debug(f"Sending reboot command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        return self._parse_response(response)
+
+    def Cmd_SetDevID(self, ID : int):
+        pack = OM_build_set_DevID(ID)
+        registers = PackToRegisters(pack)
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
+        logger.debug(f"Sending SetDevID command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        return self._parse_response(response)
+
+    def Cmd_SSTake(self):
+        pack = OM_build_cmd_SS_take()
+        registers = PackToRegisters(pack)
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
+        logger.debug(f"Sending SSTake command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        return self._parse_response(response)
+
+
+
+    def Data_GetSS(self, blocking=True, timeout=1):
+        command = self._build_command(ModbusRequestType.READ, OM_SS_REG_ADDR+OM_SS_DATA_OFF, count=OM_SS_DATA_LEN)
+        response = self.modbus_worker.send_request(command, blocking=blocking, timeout=timeout)
+        logger.debug(f"Getting SS data: {command.__dict__}")
+        if "data" in response:
+            response["data"] = OM_SS_parse(response["data"])
+        return self._parse_response(response)
+
+
+    def Data_GetDevID(self, blocking=True, timeout=1):
+        command = self._build_command(ModbusRequestType.READ, OM_CMD_REG_ADDR+OM_DEV_ID_OFF, count=OM_DEV_ID_LEN)
+        response = self.modbus_worker.send_request(command, blocking=blocking, timeout=timeout)
+        logger.debug(f"Sending SS_read_data command: {command.__dict__}")
+        if "data" in response:
+            response["data"] = OM_parse_DevID(response["data"])
+        return self._parse_response(response)
+
+
+    def _CANWrp_ExecCmd(self, VarID: int = 14, Offset : int = 0, RTR: int = 1, data: list = [], DLen: int = 0):
+        pack = OM_build_CANEm_WriteWrappedCmd(VarID=VarID, Offset=Offset, RTR=RTR, data=data, DLen=DLen)
+        registers = PackToRegisters(pack=pack)
+
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_BOOT_REG_ADDR+OM_CAN_STR_OFF, registers=registers)
+        logger.debug(f"Sending CANEm command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        if "error" in response:
+            return {"error": response["error"]}
+
+        command = self._build_command(ModbusRequestType.READ, OM_BOOT_REG_ADDR+OM_CAN_STR_OFF, count=OM_CAN_STR_LEN)
+        response = self.modbus_worker.send_request(command, timeout=1)
+        logger.debug(f"Reading CANEm status: {command.__dict__}")
+
+        if "data" in response:        
+            resp_pack = RegistersToPack(response["data"])
+            CANNum, TypeID, DLen, data_resp = OM_Parse_CANEmWrap(resp_pack)
+            response["data"] = {"CANNum" : CANNum, "TypeID" : TypeID, "DLen" : DLen, "data" : data_resp}
+        return response
+
+    
+    def CANWrp_ReadFlashFrag(self, offset=0):
+        response = self._CANWrp_ExecCmd(Offset=offset, RTR = 1)
+        if "data" in response:
+            CANNum, TypeID, DLen, data_resp = response["data"].values()
+            response["data"] = data_resp
+
+        return response
+
+    def CANWrp_ReadCB(self):
+        response = self._CANWrp_ExecCmd(Offset = 0x00080000, RTR = 1)
+        if "data" in response:
+            CANNum, TypeID, DLen, data_resp = response["data"].values()
+            parsed_data = OM_ParseFlashStruct(data=data_resp, type=FlashCB_Type.INFO)
+            response["data"] = parsed_data
+        return response
+
+
