@@ -8,6 +8,7 @@ from loguru import logger
 from pymodbus.exceptions import ConnectionException
 from OM_registers import *
 from OM_data import *
+from blt_logic import *
 
 class ModbusRequestType(Enum):
     READ = 1
@@ -55,11 +56,7 @@ class ModbusWorker(threading.Thread):
         self.request_queue = queue.Queue(maxsize=100)
         self.response_queue = queue.Queue()
         self.running = False
-        self.client = None
-
-    def connect(self):
-        try:
-            self.client = ModbusClient(
+        self.client : ModbusClient = ModbusClient(
                 port=self.port,
                 baudrate=self.baudrate,
                 stopbits=self.stopbits,
@@ -67,6 +64,10 @@ class ModbusWorker(threading.Thread):
                 bytesize=self.bytesize,
                 timeout=self.timeout,
             )
+
+    def connect(self):
+        try:
+
             self.client.connect()
             logger.info(f"Connected to Modbus on {self.port}")
             return True
@@ -268,7 +269,7 @@ class OM_Interface:
         logger.debug(f"Getting SS data: {command.__dict__}")
         if "data" in response:
             response["data"] = OM_SS_parse(response["data"])
-        return self._parse_response(response)
+        return response
 
 
     def Data_GetDevID(self, blocking=True, timeout=1):
@@ -277,7 +278,7 @@ class OM_Interface:
         logger.debug(f"Sending SS_read_data command: {command.__dict__}")
         if "data" in response:
             response["data"] = OM_parse_DevID(response["data"])
-        return self._parse_response(response)
+        return response
 
 
 
@@ -323,7 +324,6 @@ class OM_Interface:
 
     def Blt_SetPref(self, pref: int = 0):
         int_pack = OM_build_BltSetPref(pref)
-        print(int_pack)
         pack = OM_build_CANWrp_WriteWrappedCmd(VarID=14, Offset=0x00080000, RTR=0, data=int_pack, DLen=len(int_pack))
         registers = PackToRegisters(pack=pack)
 
@@ -337,6 +337,36 @@ class OM_Interface:
         if "data" in response:
             CANNum, TypeID, DLen, data_resp = response["data"].values()
             parsed_data = OM_ParseFlashStruct(data=data_resp, type=FlashCB_Type.INFO)
+            if not "error" in response:
+                if (int.from_bytes(parsed_data["Status"], "little") & 0x80) != 0x00:
+                    response["Status"] = "Error"
+                else:
+                    response["Status"] = "Ok"
+
+            response["data"] = parsed_data
+        return response
+
+    def Blt_CheckImgValid(self, part = 0):
+        int_pack = OM_build_BltCheckImgValid(part)
+        pack = OM_build_CANWrp_WriteWrappedCmd(VarID=14, Offset=0x00080000, RTR=0, data=int_pack, DLen=len(int_pack))
+        registers = PackToRegisters(pack=pack)
+
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_BOOT_REG_ADDR+OM_CAN_STR_OFF, registers=registers)
+        logger.debug(f"Sending CANEm command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        if "error" in response:
+            return {"error": response["error"]}
+
+        response = self._CANWrp_ExecCmd(Offset = 0x00080000, RTR = 1)
+        if "data" in response:
+            CANNum, TypeID, DLen, data_resp = response["data"].values()
+            parsed_data = OM_ParseFlashStruct(data=data_resp, type=FlashCB_Type.INFO)
+            if not "error" in response:
+                if (int.from_bytes(parsed_data["Status"], "little") & 0x80) != 0x00:
+                    response["Status"] = "Error"
+                else:
+                    response["Status"] = "Ok"
+
             response["data"] = parsed_data
         return response
 
