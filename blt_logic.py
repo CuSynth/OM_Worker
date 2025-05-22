@@ -14,7 +14,7 @@ from CRC_lib import crc32_stm
 FLASH_CMD_ERASE_SECTORS_2           = 0x02
 FLASH_CMD_CHECK_CRC_IMAGE_N         = 0x04
 FLASH_CMD_CHECK_VALID_IMAGE_N       = 0x06
-# FLASH_CMD_FIX_VALID_IMAGE_N     = 0x08
+FLASH_CMD_FIX_VALID_IMAGE_N         = 0x08
 FLASH_CMD_SET_PREF_BLOCK_N          = 0x0A
 #define FLASH_CMD_DO_COPY_AND_GO        0x0C
 #define FLASH_CMD_RESTART               0x0E
@@ -168,14 +168,14 @@ def OM_build_BltEraseSecondPart():
     return pack
 
 
-def OM_BuildCheckCRC(sector: int, FW_path: str):
+def OM_build_BltCheckCRC(img: int, FW_path: str):
     file_info = analyze_bin_file(FW_path)
     if file_info is None:
         return None
 
 
     size = file_info['FW_size']-4
-    cmd = FLASH_CMD_CHECK_CRC_IMAGE_N | (sector & 0x01)
+    cmd = FLASH_CMD_CHECK_CRC_IMAGE_N | (secimgtor & 0x01)
     crc = file_info['CRC']
 
     pack = [(size & 0xFF), ((size >> 8) & 0xFF), ((size >> 16) & 0xFF), cmd, 
@@ -183,6 +183,15 @@ def OM_BuildCheckCRC(sector: int, FW_path: str):
 
     return pack
 
+def OM_build_BltFixValidImg(img: int):
+    size = 0
+    cmd = FLASH_CMD_FIX_VALID_IMAGE_N
+    crc = 0
+
+    pack = [(size & 0xFF), ((size >> 8) & 0xFF), ((size >> 16) & 0xFF), cmd, 
+            (crc & 0xFF), ((crc >> 8) & 0xFF), ((crc >> 16) & 0xFF), ((crc >> 24) & 0xFF)]
+
+    return pack
 
 
 

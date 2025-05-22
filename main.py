@@ -8,37 +8,12 @@ COMM_PORT   = "COM9"
 BAUDRATE    = 500000
 
 def Playground(OM_entry: OM_Interface):
-    CB_resp = OM_entry.CANWrp_ReadCB()
-    logger.info(f"Current CB: {CB_resp}")
-
-    # resp = OM_entry.Blt_CheckImgValid(0)
-    # logger.info(f"Check CRC_0 res: {resp}")
-
-    # resp = OM_entry.Blt_CheckImgValid(1)
-    # logger.info(f"Check CRC_1 res: {resp}")
-
-    resp = OM_entry.Blt_CheckCRC(0, file_path='FWs/OMMCU_v02_09_09_m.bin')
-    logger.info(f"Check CRC_1 res: {resp}")
-
+    ExampleCheckValid(OM_entry=OM_entry)
 
     # resp = OM_entry.Blt_SetPref(0)
     # logger.info(f"Check CRC_1 res: {resp}")
 
-
-    # resp = OM_entry.Blt_EraseHalf()
-    # logger.info(f"Erase second hal res: {resp}")
-
-
     # resp = OM_entry.Blt_SetPref(1)
-    # logger.info(f"Check CRC_1 res: {resp}")
-
-    # resp = OM_entry.Blt_EraseSector(1)
-    # logger.info(f"Check CRC_1 res: {resp}")
-
-    # resp = OM_entry.Blt_EraseSector(2)
-    # logger.info(f"Check CRC_1 res: {resp}")
-
-    # resp = OM_entry.Blt_EraseSector(3)
     # logger.info(f"Check CRC_1 res: {resp}")
 
 
@@ -125,6 +100,51 @@ def Example_SysCmd(OM_entry: OM_Interface):
 
     resp = OM_entry.Data_GetMnfID()
     logger.info(resp)
+
+
+def ExampleCheckValid(OM_entry: OM_Interface):
+    CB_resp = OM_entry.CANWrp_ReadCB()
+    logger.info(f"Current CB: {CB_resp}")
+
+    resp = OM_entry.Blt_CheckImgValid(0)
+    logger.info(f"Check CRC_0 res: {resp}")
+
+    resp = OM_entry.Blt_CheckImgValid(1)
+    logger.info(f"Check CRC_1 res: {resp}")
+
+
+def ExampleCheckCRC(OM_entry: OM_Interface):
+    ExampleCheckValid(OM_entry)
+
+    resp = OM_entry.Blt_CheckCRC(0, file_path='FWs/OMMCU_v02_09_09_m.bin')
+    logger.info(f"Check valid of img_0 res: {resp}")
+
+    resp = OM_entry.Blt_CheckCRC(1, file_path='FWs/OMMCU_v02_09_09_r.bin')
+    logger.info(f"Check valid of img_1 res: {resp}")
+
+
+
+def ExampleEraseBySector(OM_entry: OM_Interface):
+    CB_resp = OM_entry.CANWrp_ReadCB()
+    logger.info(f"Current CB: {CB_resp}")
+    
+    resp = OM_entry.Blt_EraseSector(5)
+    logger.info(f"Check CRC_1 res: {resp}")
+
+    resp = OM_entry.Blt_EraseSector(6)
+    logger.info(f"Check CRC_1 res: {resp}")
+
+    resp = OM_entry.Blt_EraseSector(7)
+    logger.info(f"Check CRC_1 res: {resp}")
+
+
+def ExampleEraseHalf(OM_entry: OM_Interface):
+    CB_resp = OM_entry.CANWrp_ReadCB()
+    logger.info(f"Current CB: {CB_resp}")
+    
+    resp = OM_entry.Blt_EraseHalf()
+    logger.info(f"Erase second hal res: {resp}")
+
 
 # Example Usagepymodbus
 if __name__ == "__main__":
