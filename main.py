@@ -2,19 +2,14 @@ from OM_worker_base import *
 from loguru import logger
 from blt_logic import analyze_bin_file
 
-
+# ResetSrc
 SLAVE_ADDR  = 2
 COMM_PORT   = "COM9"
 BAUDRATE    = 500000
 
 def Playground(OM_entry: OM_Interface):
-    ExampleCheckValid(OM_entry=OM_entry)
+    ExampleReboot(OM_entry)
 
-    # resp = OM_entry.Blt_SetPref(0)
-    # logger.info(f"Check CRC_1 res: {resp}")
-
-    # resp = OM_entry.Blt_SetPref(1)
-    # logger.info(f"Check CRC_1 res: {resp}")
 
 
 
@@ -144,6 +139,60 @@ def ExampleEraseHalf(OM_entry: OM_Interface):
     
     resp = OM_entry.Blt_EraseHalf()
     logger.info(f"Erase second hal res: {resp}")
+
+
+
+def ExampleFixValid(OM_entry: OM_Interface):
+    resp = OM_entry.Blt_CheckImgValid(0)
+    logger.info(f"Check CRC_1 res: {resp}")
+    
+    resp = OM_entry.Blt_FixValid(0)
+    logger.info(f"Fix CRC_1 res: {resp}")
+
+    resp = OM_entry.Blt_CheckImgValid(0)
+    logger.info(f"Check CRC_1 res: {resp}")
+
+
+    resp = OM_entry.Blt_CheckImgValid(1)
+    logger.info(f"Check CRC_1 res: {resp}")
+    
+    resp = OM_entry.Blt_FixValid(1)
+    logger.info(f"Fix CRC_1 res: {resp}")
+
+    resp = OM_entry.Blt_CheckImgValid(1)
+    logger.info(f"Check CRC_1 res: {resp}")
+
+
+def ExampleReboot(OM_entry: OM_Interface):
+    ExampleCheckValid(OM_entry=OM_entry)
+
+    CB_resp = OM_entry.CANWrp_ReadCB()
+    logger.info(f"Current CB: {CB_resp}")
+    resp = OM_entry.Blt_SetPref(1)
+    logger.info(f"Set pref: {resp}")
+    CB_resp = OM_entry.CANWrp_ReadCB()
+    logger.info(f"Current CB: {CB_resp}")
+
+    resp = OM_entry.Blt_Restart()
+    logger.info(f"Restart resp: {resp}")
+
+    time.sleep(2)
+
+    CB_resp = OM_entry.CANWrp_ReadCB()
+    logger.info(f"Current CB: {CB_resp}")
+    resp = OM_entry.Blt_SetPref(0)
+    logger.info(f"Set pref: {resp}")
+    CB_resp = OM_entry.CANWrp_ReadCB()
+    logger.info(f"Current CB: {CB_resp}")
+
+    resp = OM_entry.Blt_Restart()
+    logger.info(f"Restart resp: {resp}")
+    
+    time.sleep(2)
+    
+    CB_resp = OM_entry.CANWrp_ReadCB()
+    logger.info(f"Current CB: {CB_resp}")
+
 
 
 # Example Usagepymodbus

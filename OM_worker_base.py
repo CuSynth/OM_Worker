@@ -478,3 +478,20 @@ class OM_Interface:
 
             response["data"] = parsed_data
         return response
+    
+    def Blt_Restart(self):
+        int_pack = OM_build_BltRestart()
+        if int_pack is None:
+            return {'error': 'File error'}
+
+        pack = OM_build_CANWrp_WriteWrappedCmd(VarID=14, Offset=0x00080000, RTR=0, data=int_pack, DLen=len(int_pack))
+        registers = PackToRegisters(pack=pack)
+
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_BOOT_REG_ADDR+OM_CAN_STR_OFF, registers=registers)
+        logger.debug(f"Sending CANEm command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        if "error" in response:
+            return {"error": response["error"]}
+        
+        return {'data': 'Cmd writen'}
+
