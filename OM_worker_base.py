@@ -275,12 +275,18 @@ class OM_Interface:
     def Data_GetDevID(self, blocking=True, timeout=1):
         command = self._build_command(ModbusRequestType.READ, OM_CMD_REG_ADDR+OM_DEV_ID_OFF, count=OM_DEV_ID_LEN)
         response = self.modbus_worker.send_request(command, blocking=blocking, timeout=timeout)
-        logger.debug(f"Sending SS_read_data command: {command.__dict__}")
+        logger.debug(f"Sending SS_read_data: {command.__dict__}")
         if "data" in response:
             response["data"] = OM_parse_DevID(response["data"])
         return response
 
-
+    def Data_GetFW_ID(self):
+        command = self._build_command(ModbusRequestType.READ, OM_CMD_REG_ADDR+OM_FW_VER_OFF, count=OM_FW_VER_LEN)
+        response = self.modbus_worker.send_request(command, blocking=True, timeout=1)
+        logger.debug(f"Sending FW_read_data: {command.__dict__}")
+        if "data" in response:
+            response["data"] = OM_parse_FWVer(response["data"])
+        return response        
 
 
     def _CANWrp_ExecCmd(self, VarID: int = 14, Offset : int = 0, RTR: int = 1, data: list = [], DLen: int = 0):
@@ -495,3 +501,29 @@ class OM_Interface:
         
         return {'data': 'Cmd writen'}
 
+    def Blt_CopyAndGo(self, file_path=''):
+        int_pack = OM_build_CopyAndGo(FW_path=file_path)
+        if int_pack is None:
+            return {'error': 'File error'}
+
+        pack = OM_build_CANWrp_WriteWrappedCmd(VarID=14, Offset=0x00080000, RTR=0, data=int_pack, DLen=len(int_pack))
+        registers = PackToRegisters(pack=pack)
+
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_BOOT_REG_ADDR+OM_CAN_STR_OFF, registers=registers)
+        logger.debug(f"Sending CANEm command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        if "error" in response:
+            return {"error": response["error"]}
+
+        # response = self._CANWrp_ExecCmd(Offset = 0x00080000, RTR = 1)
+        # if "data" in response:
+        #     CANNum, TypeID, DLen, data_resp = response["data"].values()
+        #     parsed_data = OM_ParseFlashStruct(data=data_resp, type=FlashCB_Type.INFO)
+        #     if not "error" in response:
+        #         if (int.from_bytes(parsed_data["Status"], "little") & 0x80) != 0x00:
+        #             response["Status"] = "Error"
+        #         else:
+        #             response["Status"] = "Ok"
+
+        #     response["data"] = parsed_data
+        # return response

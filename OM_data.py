@@ -71,7 +71,15 @@ def OM_parse_DevID(registers: list = []):
 
     return {"DevID" : ID}
 
+def OM_parse_FWVer(registers: list = []):
+    if len(registers) != OM_FW_VER_LEN:
+        return None
 
+    fix = (registers[0] >> 8) | ((registers[0] & 0x00FF) << 8)
+    minr = (registers[1] >> 8) | ((registers[1] & 0x00FF) << 8)
+    majr = (registers[2] >> 8) | ((registers[2] & 0x00FF) << 8)
+
+    return {"FWVer" : ('%02d.%02d.%02d' % (majr, minr, fix))}
 
 
 

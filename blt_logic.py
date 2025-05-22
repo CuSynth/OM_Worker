@@ -16,11 +16,11 @@ FLASH_CMD_CHECK_CRC_IMAGE_N         = 0x04
 FLASH_CMD_CHECK_VALID_IMAGE_N       = 0x06
 FLASH_CMD_FIX_VALID_IMAGE_N         = 0x08
 FLASH_CMD_SET_PREF_BLOCK_N          = 0x0A
-#define FLASH_CMD_DO_COPY_AND_GO        0x0C
+FLASH_CMD_DO_COPY_AND_GO            = 0x0C
 FLASH_CMD_RESTART                   = 0x0E
 FLASH_CMD_ERASE_ONE_SECTOR          = 0x12
 # Write!
-
+# ResetSrc
 
 
 #define FLASH_STAT_LOAD_OK              0x10
@@ -204,6 +204,25 @@ def OM_build_BltRestart():
             (crc & 0xFF), ((crc >> 8) & 0xFF), ((crc >> 16) & 0xFF), ((crc >> 24) & 0xFF)]
 
     return pack
+
+
+
+def OM_build_CopyAndGo(FW_path: str):
+    file_info = analyze_bin_file(FW_path)
+    if file_info is None:
+        return None
+
+
+    size = file_info['FW_size']-4
+    cmd = FLASH_CMD_DO_COPY_AND_GO
+    crc = file_info['CRC']
+
+    pack = [(size & 0xFF), ((size >> 8) & 0xFF), ((size >> 16) & 0xFF), cmd, 
+            (crc & 0xFF), ((crc >> 8) & 0xFF), ((crc >> 16) & 0xFF), ((crc >> 24) & 0xFF)]
+
+    return pack
+
+
 
 
 
