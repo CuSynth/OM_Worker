@@ -6,6 +6,30 @@ import os
 from OM_registers import *
 from CRC_lib import crc32_stm
 
+
+
+
+
+
+FLASH_CMD_ERASE_SECTORS_2           = 0x02
+FLASH_CMD_CHECK_CRC_IMAGE_N         = 0x04
+FLASH_CMD_CHECK_VALID_IMAGE_N       = 0x06
+# FLASH_CMD_FIX_VALID_IMAGE_N     = 0x08
+FLASH_CMD_SET_PREF_BLOCK_N          = 0x0A
+#define FLASH_CMD_DO_COPY_AND_GO        0x0C
+#define FLASH_CMD_RESTART               0x0E
+FLASH_CMD_ERASE_ONE_SECTOR          = 0x12
+# Write!
+
+
+
+#define FLASH_STAT_LOAD_OK              0x10
+#define FLASH_STAT_MASK_NIX_ERR         0xC0
+#define FLASH_STAT_MASK_ERR             0x80
+#define FLASH_STAT_FATAL_ERR            0xFF
+
+
+
 class FlashCB_Type(Enum):
     INFO = 1
     CTRL = 2
@@ -102,7 +126,7 @@ def OM_ParseFlashStruct(data: list, type: FlashCB_Type):
 def OM_build_BltSetPref(pref: int):
     pref = pref & 0x01
     size = 0
-    cmd = 0x0A | pref
+    cmd = FLASH_CMD_SET_PREF_BLOCK_N | pref
     crc = 0
 
     pack = [(size & 0xFF), ((size >> 8) & 0xFF), ((size >> 16) & 0xFF), cmd, 
@@ -113,7 +137,29 @@ def OM_build_BltSetPref(pref: int):
 def OM_build_BltCheckImgValid(part: int):
     part = part & 0x01
     size = 0
-    cmd = 0x06 | part
+    cmd = FLASH_CMD_CHECK_VALID_IMAGE_N | part
+    crc = 0
+
+    pack = [(size & 0xFF), ((size >> 8) & 0xFF), ((size >> 16) & 0xFF), cmd, 
+            (crc & 0xFF), ((crc >> 8) & 0xFF), ((crc >> 16) & 0xFF), ((crc >> 24) & 0xFF)]
+
+    return pack
+
+def OM_build_BltEraseSector(sector: int):
+    sector = sector % 8
+
+    size = sector
+    cmd = FLASH_CMD_ERASE_ONE_SECTOR
+    crc = 0
+
+    pack = [(size & 0xFF), ((size >> 8) & 0xFF), ((size >> 16) & 0xFF), cmd, 
+            (crc & 0xFF), ((crc >> 8) & 0xFF), ((crc >> 16) & 0xFF), ((crc >> 24) & 0xFF)]
+
+    return pack
+
+def OM_build_BltEraseSecondPart():
+    size = 0
+    cmd = FLASH_CMD_ERASE_SECTORS_2
     crc = 0
 
     pack = [(size & 0xFF), ((size >> 8) & 0xFF), ((size >> 16) & 0xFF), cmd, 
@@ -122,6 +168,20 @@ def OM_build_BltCheckImgValid(part: int):
     return pack
 
 
+def OM_BuildCheckCRC(sector: int, FW_path: str):
+    file_info = analyze_bin_file(FW_path)
+    if file_info is None:
+        return None
+
+
+    size = file_info['FW_size']-4
+    cmd = FLASH_CMD_CHECK_CRC_IMAGE_N | (sector & 0x01)
+    crc = file_info['CRC']
+
+    pack = [(size & 0xFF), ((size >> 8) & 0xFF), ((size >> 16) & 0xFF), cmd, 
+            (crc & 0xFF), ((crc >> 8) & 0xFF), ((crc >> 16) & 0xFF), ((crc >> 24) & 0xFF)]
+
+    return pack
 
 
 
@@ -135,8 +195,9 @@ def find_crc_and_size(file_content):
         file_content (bytes): The content of the binary file as a byte string.
 
     Returns:
-        dict: A dictionary containing the real size, written size, and CRC32 value if found,
-              otherwise None.
+        dict: A dictionary containing the file size, FW size, and CRC32 value if found,
+              otherwise None. 
+              FW size is returned as it is written in FW: in words, CRC included, filesize not included.
     """
     addr = 0
     ret = -1
@@ -152,7 +213,6 @@ def find_crc_and_size(file_content):
         if calculated_crc == 0:
             CRC_match = True
             if addr == int.from_bytes(file_content[addr:addr+4], 'little')*4:
-                addr += 4
                 Size_match = True
             break
         prev_crc = calculated_crc
@@ -161,7 +221,7 @@ def find_crc_and_size(file_content):
     return {
         "file_size":    file_size,
         "FW_size":      addr,
-        "crc":          prev_crc,
+        "CRC":          prev_crc,
         "crc_match":    CRC_match,
         "size_match":   Size_match
     }
@@ -194,7 +254,7 @@ def analyze_bin_file(file_path):
 
 
 def main():
-    file_path = "FWs/OMMCU_v02_09_00_r.bin"  # Replace with the actual path
+    file_path = "FWs/OMMCU_v02_09_07_r.bin"  # Replace with the actual path
     result = analyze_bin_file(file_path)
     print(result)
     return

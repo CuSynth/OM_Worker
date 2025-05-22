@@ -370,3 +370,79 @@ class OM_Interface:
             response["data"] = parsed_data
         return response
 
+    def Blt_EraseSector(self, sector = 7):
+        int_pack = OM_build_BltEraseSector(sector)
+        pack = OM_build_CANWrp_WriteWrappedCmd(VarID=14, Offset=0x00080000, RTR=0, data=int_pack, DLen=len(int_pack))
+        registers = PackToRegisters(pack=pack)
+
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_BOOT_REG_ADDR+OM_CAN_STR_OFF, registers=registers)
+        logger.debug(f"Sending CANEm command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        if "error" in response:
+            return {"error": response["error"]}
+
+        response = self._CANWrp_ExecCmd(Offset = 0x00080000, RTR = 1)
+        if "data" in response:
+            CANNum, TypeID, DLen, data_resp = response["data"].values()
+            parsed_data = OM_ParseFlashStruct(data=data_resp, type=FlashCB_Type.INFO)
+            if not "error" in response:
+                if (int.from_bytes(parsed_data["Status"], "little") & 0x80) != 0x00:
+                    response["Status"] = "Error"
+                else:
+                    response["Status"] = "Ok"
+
+            response["data"] = parsed_data
+        return response
+    
+
+    def Blt_EraseHalf(self):
+        int_pack = OM_build_BltEraseSecondPart()
+        pack = OM_build_CANWrp_WriteWrappedCmd(VarID=14, Offset=0x00080000, RTR=0, data=int_pack, DLen=len(int_pack))
+        registers = PackToRegisters(pack=pack)
+
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_BOOT_REG_ADDR+OM_CAN_STR_OFF, registers=registers)
+        logger.debug(f"Sending CANEm command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        if "error" in response:
+            return {"error": response["error"]}
+
+        response = self._CANWrp_ExecCmd(Offset = 0x00080000, RTR = 1)
+        if "data" in response:
+            CANNum, TypeID, DLen, data_resp = response["data"].values()
+            parsed_data = OM_ParseFlashStruct(data=data_resp, type=FlashCB_Type.INFO)
+            if not "error" in response:
+                if (int.from_bytes(parsed_data["Status"], "little") & 0x80) != 0x00:
+                    response["Status"] = "Error"
+                else:
+                    response["Status"] = "Ok"
+
+            response["data"] = parsed_data
+        return response
+    
+
+    def Blt_CheckCRC(self, img:int = 0, file_path=''):
+        int_pack = OM_BuildCheckCRC(sector=img, FW_path=file_path)
+        if int_pack is None:
+            return {'error': 'File error'}
+
+        pack = OM_build_CANWrp_WriteWrappedCmd(VarID=14, Offset=0x00080000, RTR=0, data=int_pack, DLen=len(int_pack))
+        registers = PackToRegisters(pack=pack)
+
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_BOOT_REG_ADDR+OM_CAN_STR_OFF, registers=registers)
+        logger.debug(f"Sending CANEm command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        if "error" in response:
+            return {"error": response["error"]}
+
+        response = self._CANWrp_ExecCmd(Offset = 0x00080000, RTR = 1)
+        if "data" in response:
+            CANNum, TypeID, DLen, data_resp = response["data"].values()
+            parsed_data = OM_ParseFlashStruct(data=data_resp, type=FlashCB_Type.INFO)
+            if not "error" in response:
+                if (int.from_bytes(parsed_data["Status"], "little") & 0x80) != 0x00:
+                    response["Status"] = "Error"
+                else:
+                    response["Status"] = "Ok"
+
+            response["data"] = parsed_data
+        return response

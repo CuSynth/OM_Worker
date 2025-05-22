@@ -11,11 +11,35 @@ def Playground(OM_entry: OM_Interface):
     CB_resp = OM_entry.CANWrp_ReadCB()
     logger.info(f"Current CB: {CB_resp}")
 
-    resp = OM_entry.Blt_CheckImgValid(0)
-    logger.info(f"Check CRC_0 res: {resp}")
+    # resp = OM_entry.Blt_CheckImgValid(0)
+    # logger.info(f"Check CRC_0 res: {resp}")
 
-    resp = OM_entry.Blt_CheckImgValid(1)
+    # resp = OM_entry.Blt_CheckImgValid(1)
+    # logger.info(f"Check CRC_1 res: {resp}")
+
+    resp = OM_entry.Blt_CheckCRC(0, file_path='FWs/OMMCU_v02_09_09_m.bin')
     logger.info(f"Check CRC_1 res: {resp}")
+
+
+    # resp = OM_entry.Blt_SetPref(0)
+    # logger.info(f"Check CRC_1 res: {resp}")
+
+
+    # resp = OM_entry.Blt_EraseHalf()
+    # logger.info(f"Erase second hal res: {resp}")
+
+
+    # resp = OM_entry.Blt_SetPref(1)
+    # logger.info(f"Check CRC_1 res: {resp}")
+
+    # resp = OM_entry.Blt_EraseSector(1)
+    # logger.info(f"Check CRC_1 res: {resp}")
+
+    # resp = OM_entry.Blt_EraseSector(2)
+    # logger.info(f"Check CRC_1 res: {resp}")
+
+    # resp = OM_entry.Blt_EraseSector(3)
+    # logger.info(f"Check CRC_1 res: {resp}")
 
 
 
