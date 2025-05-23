@@ -8,14 +8,12 @@ COMM_PORT   = "COM9"
 BAUDRATE    = 500000
 
 def Playground(OM_entry: OM_Interface):
-    # Example_CheckValid(OM_entry)
     Example_UploadFWAndCopyAndGo(OM_entry=OM_entry)
 
 
 
-
 def main():
-    logger.add("logs/app.log", level="DEBUG", rotation="500 KB", retention="1 week")
+    logger.add("logs/OM_wrkr.log", level="DEBUG", rotation="5 MB", retention="4 week")
     logger.info("Application started")
     modbus_worker: ModbusWorker = ModbusWorker (
             port=COMM_PORT, baudrate=BAUDRATE, stopbits=1, parity="N", bytesize=8
@@ -71,31 +69,32 @@ def Example_UploadFW(OM_entry: OM_Interface):
     Example_GetFW_ID(OM_entry)
 
 def Example_UploadFWAndCopyAndGo(OM_entry: OM_Interface):
-    # Example_GetFW_ID(OM_entry)
-    # Example_CheckValid(OM_entry)
+    Example_GetFW_ID(OM_entry)
+    Example_CheckValid(OM_entry)
 
+    ret = OM_entry.Blt_SetPref(pref=0)
+    logger.info(f"FW_upload ret: {ret}")
 
-    # ret = OM_entry.Blt_SetPref(pref=0)
-    # logger.info(f"FW_upload ret: {ret}")
+    resp = OM_entry.Blt_Restart()
+    logger.info(f"Restart resp: {resp}")
 
-    # resp = OM_entry.Blt_Restart()
-    # logger.info(f"Restart resp: {resp}")
+    time.sleep(1)
 
-    # time.sleep(1)
+    Example_EraseHalf(OM_entry)
 
-    # Example_EraseHalf(OM_entry)
-
-    # time.sleep(5)
+    time.sleep(5)
 
     Example_GetFW_ID(OM_entry)
     Example_CheckValid(OM_entry)
 
-    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v02_10_03_m.bin')
+    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v02_10_07_m.bin')
     logger.info(f"FW_upload ret: {ret}")
-    return 
-    Example_CheckValid(OM_entry)
-    OM_entry.Blt_Restart()
 
+    Example_CheckValid(OM_entry)
+
+    resp = OM_entry.Blt_CopyAndGo(file_path='FWs/OMMCU_v02_10_07_m.bin')
+    logger.info(f"Copy and go res: {resp}")
+    
     time.sleep(1)
 
     Example_CheckValid(OM_entry)

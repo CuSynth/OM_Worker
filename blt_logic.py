@@ -174,7 +174,7 @@ def OM_build_BltCheckCRC(img: int, FW_path: str):
         return None
 
 
-    size = file_info['FW_size']-4
+    size = file_info['FW_size']
     cmd = FLASH_CMD_CHECK_CRC_IMAGE_N | (img & 0x01)
     crc = file_info['CRC']
 
@@ -213,7 +213,7 @@ def OM_build_CopyAndGo(FW_path: str):
         return None
 
 
-    size = file_info['FW_size']-4
+    size = file_info['FW_size']
     cmd = FLASH_CMD_DO_COPY_AND_GO
     crc = file_info['CRC']
 

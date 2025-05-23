@@ -582,6 +582,7 @@ class OM_Interface:
         offset = 0
         retry_limit = 3
 
+        logger.info(f"Starting firmware upload: {file}, size: {total_len} bytes")
         while offset < total_len:
             block = fw_data[offset:offset + block_size]
             block_offset = 0
@@ -590,7 +591,7 @@ class OM_Interface:
                 chunk = block[block_offset:block_offset + chunk_size]
                 # Pad chunk if less than 8 bytes
                 if len(chunk) < chunk_size:
-                    print(f"Padding chunk: {chunk}")
+                    logger.debug(f"Padding chunk at offset {offset + block_offset}: {chunk}")
                     chunk = chunk + b'\xFE' * (chunk_size - len(chunk))
                 # Prepare CAN wrapped command
                 pack = OM_build_CANWrp_WriteWrappedCmd(
@@ -608,9 +609,11 @@ class OM_Interface:
                 )
                 response = self.modbus_worker.send_request(command)
                 if "error" in response:
+                    logger.error(f"Write error at offset {offset + block_offset}: {response['error']}")
                     return {"error": f"Write error at offset {offset + block_offset}: {response['error']}"}
                 block_offset += chunk_size
 
+            logger.info(f"Written {min(offset + block_size, total_len)} / {total_len} bytes ({100 * min(offset + block_size, total_len) // total_len}%)")
             time.sleep(0.1)
             # After each 128 bytes, check control block status
             for _ in range(retry_limit):
@@ -622,21 +625,24 @@ class OM_Interface:
                         break  # OK
                 retries += 1
                 if retries >= retry_limit:
+                    logger.error(f"Write failed at offset {offset}, status: {cb_resp}")
                     return {"error": f"Write failed at offset {offset}, status: {cb_resp}"}
                 time.sleep(0.2)
             offset += block_size
 
+        logger.info("Firmware upload complete, verifying CRC and validity...")
         # 6. Once file content is loaded - check FW CRC and Valid.
         check_crc = self.Blt_CheckCRC(img=image, file_path=file)
-        print(check_crc)
-        if "error" in check_crc:
+        if 'Error' in check_crc:
+            logger.error(f"CRC check failed: {check_crc['error']}")
             return {"error": f"CRC check failed: {check_crc['error']}"}
-        check_valid = self.Blt_CheckImgValid(part=image)
-        if "error" in check_valid:
-            return {"error": f"Valid check failed: {check_valid['error']}"}
+        # check_valid = self.Blt_CheckImgValid(part=image)
+        # if 'Error' in check_valid:
+        #     logger.error(f"Valid check failed: {check_valid['error']}")
+        #     return {"error": f"Valid check failed: {check_valid['error']}"}
 
+        logger.info("Firmware upload successful!")
         return {
             "status": "success",
-            "CRC_check": check_crc,
-            "Valid_check": check_valid
+            "CRC_check": check_crc
         }
