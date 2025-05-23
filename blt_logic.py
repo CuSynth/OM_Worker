@@ -169,7 +169,7 @@ def OM_build_BltEraseSecondPart():
 
 
 def OM_build_BltCheckCRC(img: int, FW_path: str):
-    file_info = analyze_bin_file(FW_path)
+    file_info, _ = analyze_bin_file(FW_path)
     if file_info is None:
         return None
 
@@ -208,7 +208,7 @@ def OM_build_BltRestart():
 
 
 def OM_build_CopyAndGo(FW_path: str):
-    file_info = analyze_bin_file(FW_path)
+    file_info, _ = analyze_bin_file(FW_path)
     if file_info is None:
         return None
 
@@ -268,13 +268,13 @@ def find_crc_and_size(file_content):
 
 def analyze_bin_file(file_path):
     """
-    Analyzes a binary file to extract CRC32, real size, and written size.
+    Analyzes a binary file to extract FW CRC32, FW size, file size and binaries themselves.
 
     Args:
         file_path (str): The path to the binary file.
 
     Returns:
-        dict: A dictionary containing the real size, written size, and CRC32 value.
+        dict: A dictionary containing the FW CRC32, FW size and file size values and bytes of file.
               Returns None if the file does not exist or if an error occurs during processing.
     """
 
@@ -285,10 +285,11 @@ def analyze_bin_file(file_path):
             file_content = f.read()
 
         result = find_crc_and_size(file_content)
-        return result
+        return result, file_content
     
     except Exception as e:
         print(f"An error occurred: {e}")
+        return None, None
 
 
 

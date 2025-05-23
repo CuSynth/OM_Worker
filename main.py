@@ -8,7 +8,9 @@ COMM_PORT   = "COM9"
 BAUDRATE    = 500000
 
 def Playground(OM_entry: OM_Interface):
-    Example_CopyAndGo(OM_entry)
+    # Example_CheckValid(OM_entry)
+    Example_UploadFWAndCopyAndGo(OM_entry=OM_entry)
+
 
 
 
@@ -36,6 +38,70 @@ def main():
 
 
 
+def Example_UploadFW(OM_entry: OM_Interface):
+    Example_GetFW_ID(OM_entry)
+    Example_CheckValid(OM_entry)
+
+
+    ret = OM_entry.Blt_SetPref(pref=0)
+    logger.info(f"FW_upload ret: {ret}")
+
+    resp = OM_entry.Blt_Restart()
+    logger.info(f"Restart resp: {resp}")
+
+    time.sleep(1)
+
+    Example_EraseHalf(OM_entry)
+
+    time.sleep(5)
+
+    Example_GetFW_ID(OM_entry)
+    Example_CheckValid(OM_entry)
+
+
+    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v02_10_01_r.bin')
+    logger.info(f"FW_upload ret: {ret}")
+
+    Example_CheckValid(OM_entry)
+    OM_entry.Blt_Restart()
+
+    time.sleep(1)
+
+    Example_CheckValid(OM_entry)
+    Example_GetFW_ID(OM_entry)
+
+def Example_UploadFWAndCopyAndGo(OM_entry: OM_Interface):
+    # Example_GetFW_ID(OM_entry)
+    # Example_CheckValid(OM_entry)
+
+
+    # ret = OM_entry.Blt_SetPref(pref=0)
+    # logger.info(f"FW_upload ret: {ret}")
+
+    # resp = OM_entry.Blt_Restart()
+    # logger.info(f"Restart resp: {resp}")
+
+    # time.sleep(1)
+
+    # Example_EraseHalf(OM_entry)
+
+    # time.sleep(5)
+
+    Example_GetFW_ID(OM_entry)
+    Example_CheckValid(OM_entry)
+
+    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v02_10_03_m.bin')
+    logger.info(f"FW_upload ret: {ret}")
+    return 
+    Example_CheckValid(OM_entry)
+    OM_entry.Blt_Restart()
+
+    time.sleep(1)
+
+    Example_CheckValid(OM_entry)
+    Example_GetFW_ID(OM_entry)
+
+
 
 
 def Example_GetSSData(OM_entry: OM_Interface):
@@ -59,9 +125,9 @@ def Example_GetSetDevID(OM_entry: OM_Interface):
     logger.debug(f"Current DevID result: {DevID_rd_res}")
 
 
-def ExampleGetFW_ID(OM_entry: OM_Interface):
+def Example_GetFW_ID(OM_entry: OM_Interface):
     FWID_rd_res = OM_entry.Data_GetFW_ID()
-    logger.info(f"Current DevID result: {FWID_rd_res}")
+    logger.info(f"Current DFW_ID result: {FWID_rd_res}")
 
 def Example_FLASHSectRd(OM_entry: OM_Interface):
     flash_frag = []
@@ -97,7 +163,7 @@ def Example_SysCmd(OM_entry: OM_Interface):
     logger.info(resp)
 
 
-def ExampleCheckValid(OM_entry: OM_Interface):
+def Example_CheckValid(OM_entry: OM_Interface):
     CB_resp = OM_entry.CANWrp_ReadCB()
     logger.info(f"Current CB: {CB_resp}")
 
@@ -108,8 +174,8 @@ def ExampleCheckValid(OM_entry: OM_Interface):
     logger.info(f"Check CRC_1 res: {resp}")
 
 
-def ExampleCheckCRC(OM_entry: OM_Interface):
-    ExampleCheckValid(OM_entry)
+def Example_CheckCRC(OM_entry: OM_Interface):
+    Example_CheckValid(OM_entry)
 
     resp = OM_entry.Blt_CheckCRC(0, file_path='FWs/OMMCU_v02_09_09_m.bin')
     logger.info(f"Check valid of img_0 res: {resp}")
@@ -119,7 +185,7 @@ def ExampleCheckCRC(OM_entry: OM_Interface):
 
 
 
-def ExampleEraseBySector(OM_entry: OM_Interface):
+def Example_EraseBySector(OM_entry: OM_Interface):
     CB_resp = OM_entry.CANWrp_ReadCB()
     logger.info(f"Current CB: {CB_resp}")
     
@@ -133,16 +199,16 @@ def ExampleEraseBySector(OM_entry: OM_Interface):
     logger.info(f"Check CRC_1 res: {resp}")
 
 
-def ExampleEraseHalf(OM_entry: OM_Interface):
+def Example_EraseHalf(OM_entry: OM_Interface):
     CB_resp = OM_entry.CANWrp_ReadCB()
     logger.info(f"Current CB: {CB_resp}")
     
     resp = OM_entry.Blt_EraseHalf()
-    logger.info(f"Erase second hal res: {resp}")
+    logger.info(f"Erase second half res: {resp}")
 
 
 
-def ExampleFixValid(OM_entry: OM_Interface):
+def Example_FixValid(OM_entry: OM_Interface):
     resp = OM_entry.Blt_CheckImgValid(0)
     logger.info(f"Check CRC_1 res: {resp}")
     
@@ -163,8 +229,8 @@ def ExampleFixValid(OM_entry: OM_Interface):
     logger.info(f"Check CRC_1 res: {resp}")
 
 
-def ExampleReboot(OM_entry: OM_Interface):
-    ExampleCheckValid(OM_entry=OM_entry)
+def Example_Reboot(OM_entry: OM_Interface):
+    Example_CheckValid(OM_entry=OM_entry)
 
     CB_resp = OM_entry.CANWrp_ReadCB()
     logger.info(f"Current CB: {CB_resp}")
@@ -196,8 +262,8 @@ def ExampleReboot(OM_entry: OM_Interface):
 
 
 def Example_CopyAndGo(OM_entry: OM_Interface):
-    ExampleCheckValid(OM_entry=OM_entry)
-    ExampleGetFW_ID(OM_entry)
+    Example_CheckValid(OM_entry=OM_entry)
+    Example_GetFW_ID(OM_entry)
 
     resp = OM_entry.Blt_CheckCRC(1, file_path='FWs/OMMCU_v02_09_12_m.bin')
     logger.info(f"Check valid of MainFW in img_1 res: {resp}")
@@ -207,8 +273,8 @@ def Example_CopyAndGo(OM_entry: OM_Interface):
 
     time.sleep(1)
 
-    ExampleCheckValid(OM_entry=OM_entry)
-    ExampleGetFW_ID(OM_entry)
+    Example_CheckValid(OM_entry=OM_entry)
+    Example_GetFW_ID(OM_entry)
 
 
 

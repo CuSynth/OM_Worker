@@ -527,3 +527,116 @@ class OM_Interface:
 
         #     response["data"] = parsed_data
         # return response
+
+
+
+
+    def Blt_UploadFW(self, image: int, file: str):
+        """
+        Uploads firmware to the device.
+
+        Args:
+            image (int): 0 for main, 1 for reserve.
+            file (str): Path to the firmware binary file.
+
+        Returns:
+            dict: Result of the upload process.
+        """
+        # 1. Open file, extract CRC and data
+        try:
+            file_info, file_content = analyze_bin_file(file)
+            if file_info is None or file_content is None:
+                return {"error": "File error or CRC/size not found"}
+        except Exception as e:
+            return {"error": f"File open/analyze error: {e}"}
+
+        fw_size = file_info.get("FW_size", 0)
+        fw_crc = file_info.get("CRC", 0)
+        file_size = file_info.get("file_size", 0)
+        if fw_size == 0:
+            return {"error": "FW size is zero"}
+        fw_data = file_content
+
+        # 2. Get module's currently running block, compare with uploading block: if the same - error.
+        cb_resp = self.CANWrp_ReadCB()
+        if "data" not in cb_resp:
+            return {"error": "Failed to read control block"}
+        current_block = int.from_bytes(cb_resp["data"].get("CurrentBlock", None))
+        if current_block is None:
+            return {"error": "CurrentBlock not found in CB"}
+        if current_block == image:
+            return {"error": "Cannot upload to currently running image"}
+ 
+        # 3. Set starting address as 0x00 cause Blt takes current FW addr and maps second FW to 0x00 addr.
+        start_addr = 0x00
+
+        # 4. Iterate over file bytes, make a command to write 8 bytes of file data.
+        # 5. On each 128-byte written: read control block and check status. If status is incorrect - retry writing last 128 byte block
+        chunk_size = 8
+        block_size = 128
+        total_len = len(fw_data)
+        if(total_len % chunk_size) != 0:
+            return {"error": "File size is not a multiple of 8 bytes"}
+        if(total_len != file_size):
+            return {"error": "File size does not match the expected size"}
+        offset = 0
+        retry_limit = 3
+
+        while offset < total_len:
+            block = fw_data[offset:offset + block_size]
+            block_offset = 0
+            retries = 0
+            while block_offset < len(block):
+                chunk = block[block_offset:block_offset + chunk_size]
+                # Pad chunk if less than 8 bytes
+                if len(chunk) < chunk_size:
+                    print(f"Padding chunk: {chunk}")
+                    chunk = chunk + b'\xFE' * (chunk_size - len(chunk))
+                # Prepare CAN wrapped command
+                pack = OM_build_CANWrp_WriteWrappedCmd(
+                    VarID=14,
+                    Offset=start_addr + offset + block_offset,
+                    RTR=0,
+                    data=list(chunk),
+                    DLen=len(chunk)
+                )
+                registers = PackToRegisters(pack=pack)
+                command = self._build_command(
+                    ModbusRequestType.WRITE_MULTY,
+                    OM_BOOT_REG_ADDR + OM_CAN_STR_OFF,
+                    registers=registers
+                )
+                response = self.modbus_worker.send_request(command)
+                if "error" in response:
+                    return {"error": f"Write error at offset {offset + block_offset}: {response['error']}"}
+                block_offset += chunk_size
+
+            time.sleep(0.1)
+            # After each 128 bytes, check control block status
+            for _ in range(retry_limit):
+                cb_resp = self.CANWrp_ReadCB()
+                if "data" in cb_resp:
+                    status = cb_resp["data"].get("Status", 0)
+                    # 0x80 is error, 0x10 is OK
+                    if (int.from_bytes(status) & 0x80) == 0:
+                        break  # OK
+                retries += 1
+                if retries >= retry_limit:
+                    return {"error": f"Write failed at offset {offset}, status: {cb_resp}"}
+                time.sleep(0.2)
+            offset += block_size
+
+        # 6. Once file content is loaded - check FW CRC and Valid.
+        check_crc = self.Blt_CheckCRC(img=image, file_path=file)
+        print(check_crc)
+        if "error" in check_crc:
+            return {"error": f"CRC check failed: {check_crc['error']}"}
+        check_valid = self.Blt_CheckImgValid(part=image)
+        if "error" in check_valid:
+            return {"error": f"Valid check failed: {check_valid['error']}"}
+
+        return {
+            "status": "success",
+            "CRC_check": check_crc,
+            "Valid_check": check_valid
+        }
