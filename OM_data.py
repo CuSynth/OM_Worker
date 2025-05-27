@@ -19,6 +19,9 @@ def OM_BuildCmd_Reboot():
 def OM_build_cmd_SS_take():
     return [0x21]
 
+def OM_build_cmd_GAM_take():
+    return [0x41]
+
 def OM_build_set_DevID(ID : int = 2):
     cmd = 0x13
     DLen = 0x01
@@ -60,6 +63,52 @@ def OM_SS_parse(registers: list = []):
                 "X_pt" : floats[3], "Y_pt" : floats[4], 
                 "Zen" : floats[5], "Azt" : floats[6],
                 "Status" : status}
+
+
+def OM_GAM_parse(registers: list):
+    if(len(registers) != OM_GAM_DATA_LEN):
+        return None
+
+    ret = {}
+    
+    GA_regs = registers[OM_GA_DATA_OFF:OM_GA_DATA_OFF+OM_GA_DATA_LEN]
+    MAG_regs = registers[OM_MAG_DATA_OFF:OM_MAG_DATA_OFF+OM_MAG_DATA_LEN]
+
+    hex_array = bytearray()
+    for i in range(0, OM_GA_DATA_LEN, 2):
+        double_reg = (GA_regs[i] << 16) | (GA_regs[i+1])
+        hex_array.extend(struct.pack(">I", double_reg))
+
+    gyro_dps = struct.unpack("<fff", hex_array[0:12])
+    ret['G_dps'] = gyro_dps
+
+    accel_G = struct.unpack("<fff", hex_array[12:24])
+    ret['A_G'] = accel_G
+
+    GA_temp = struct.unpack("H", hex_array[24:26])[0]
+    ret['GA_temp'] = GA_temp
+
+    GA_stat  = struct.unpack("h", hex_array[26:28])[0]
+    ret['GA_stat'] = GA_stat
+
+
+    hex_array = bytearray()
+    for i in range(0, OM_MAG_DATA_LEN, 2):
+        double_reg = (MAG_regs[i] << 16) | (MAG_regs[i+1])
+        hex_array.extend(struct.pack(">I", double_reg))
+
+    MGM_uT = struct.unpack("<fff", hex_array[0:12])
+    ret['MGM_uT'] = MGM_uT
+    
+    MGM_temp = struct.unpack("H", hex_array[12:14])[0]
+    ret['MGM_temp'] = MGM_temp
+
+    MGM_stat  = struct.unpack("h", hex_array[14:16])[0]
+    ret['MGM_stat'] = MGM_stat
+
+
+    return ret
+
 
 def OM_parse_DevID(registers: list = []):
     if len(registers) != OM_DEV_ID_LEN:

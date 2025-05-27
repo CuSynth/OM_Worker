@@ -68,6 +68,9 @@ OM_GA_DATA_LEN      = 14
 OM_MAG_DATA_OFF     = 14
 OM_MAG_DATA_LEN     = 8
 
+OM_GAM_DATA_OFF     = 0
+OM_GAM_DATA_LEN     = 22
+
 OM_GA_DESC_OFF      = 48
 OM_GA_DESC_LEN      = 20
 

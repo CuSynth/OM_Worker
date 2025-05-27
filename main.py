@@ -1,6 +1,5 @@
 from OM_worker_base import *
 from loguru import logger
-from blt_logic import analyze_bin_file
 
 # ResetSrc
 SLAVE_ADDR  = 2
@@ -8,8 +7,7 @@ COMM_PORT   = "COM9"
 BAUDRATE    = 500000
 
 def Playground(OM_entry: OM_Interface):
-    Example_UploadFWAndCopyAndGo(OM_entry=OM_entry)
-
+    Example_GetGAM(OM_entry=OM_entry)
 
 
 def main():
@@ -36,72 +34,14 @@ def main():
 
 
 
-def Example_UploadFW(OM_entry: OM_Interface):
-    Example_GetFW_ID(OM_entry)
-    Example_CheckValid(OM_entry)
 
 
-    ret = OM_entry.Blt_SetPref(pref=0)
-    logger.info(f"FW_upload ret: {ret}")
+def Example_GetGAM(OM_entry: OM_Interface):
+    ret = OM_entry.Cmd_GAMTake()
+    logger.info(f"GAM cmd send: {ret}")
 
-    resp = OM_entry.Blt_Restart()
-    logger.info(f"Restart resp: {resp}")
-
-    time.sleep(1)
-
-    Example_EraseHalf(OM_entry)
-
-    time.sleep(5)
-
-    Example_GetFW_ID(OM_entry)
-    Example_CheckValid(OM_entry)
-
-
-    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v02_10_01_r.bin')
-    logger.info(f"FW_upload ret: {ret}")
-
-    Example_CheckValid(OM_entry)
-    OM_entry.Blt_Restart()
-
-    time.sleep(1)
-
-    Example_CheckValid(OM_entry)
-    Example_GetFW_ID(OM_entry)
-
-def Example_UploadFWAndCopyAndGo(OM_entry: OM_Interface):
-    Example_GetFW_ID(OM_entry)
-    Example_CheckValid(OM_entry)
-
-    ret = OM_entry.Blt_SetPref(pref=0)
-    logger.info(f"FW_upload ret: {ret}")
-
-    resp = OM_entry.Blt_Restart()
-    logger.info(f"Restart resp: {resp}")
-
-    time.sleep(1)
-
-    Example_EraseHalf(OM_entry)
-
-    time.sleep(5)
-
-    Example_GetFW_ID(OM_entry)
-    Example_CheckValid(OM_entry)
-
-    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v02_10_07_m.bin')
-    logger.info(f"FW_upload ret: {ret}")
-
-    Example_CheckValid(OM_entry)
-
-    resp = OM_entry.Blt_CopyAndGo(file_path='FWs/OMMCU_v02_10_07_m.bin')
-    logger.info(f"Copy and go res: {resp}")
-    
-    time.sleep(1)
-
-    Example_CheckValid(OM_entry)
-    Example_GetFW_ID(OM_entry)
-
-
-
+    ret = OM_entry.Data_GetGAM()
+    logger.info(f"GAM data read: {ret}")
 
 def Example_GetSSData(OM_entry: OM_Interface):
     for i in range(1):
@@ -229,6 +169,18 @@ def Example_FixValid(OM_entry: OM_Interface):
 
 
 def Example_Reboot(OM_entry: OM_Interface):
+    CB_resp = OM_entry.CANWrp_ReadCB()
+    logger.info(f"Current CB: {CB_resp}")
+    
+    resp = OM_entry.Blt_Restart()
+    logger.info(f"Restart resp: {resp}")
+
+    time.sleep(0.1)
+
+    CB_resp = OM_entry.CANWrp_ReadCB()
+    logger.info(f"Current CB: {CB_resp}")
+
+def Example_SetPref(OM_entry: OM_Interface):
     Example_CheckValid(OM_entry=OM_entry)
 
     CB_resp = OM_entry.CANWrp_ReadCB()
@@ -276,6 +228,69 @@ def Example_CopyAndGo(OM_entry: OM_Interface):
     Example_GetFW_ID(OM_entry)
 
 
+def Example_UploadFW(OM_entry: OM_Interface):
+    Example_GetFW_ID(OM_entry)
+    Example_CheckValid(OM_entry)
+
+
+    ret = OM_entry.Blt_SetPref(pref=0)
+    logger.info(f"FW_upload ret: {ret}")
+
+    resp = OM_entry.Blt_Restart()
+    logger.info(f"Restart resp: {resp}")
+
+    time.sleep(1)
+
+    Example_EraseHalf(OM_entry)
+
+    time.sleep(5)
+
+    Example_GetFW_ID(OM_entry)
+    Example_CheckValid(OM_entry)
+
+
+    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v02_10_01_r.bin')
+    logger.info(f"FW_upload ret: {ret}")
+
+    Example_CheckValid(OM_entry)
+    OM_entry.Blt_Restart()
+
+    time.sleep(1)
+
+    Example_CheckValid(OM_entry)
+    Example_GetFW_ID(OM_entry)
+
+def Example_UploadFWAndCopyAndGo(OM_entry: OM_Interface):
+    Example_GetFW_ID(OM_entry)
+    Example_CheckValid(OM_entry)
+
+    ret = OM_entry.Blt_SetPref(pref=0)
+    logger.info(f"FW_upload ret: {ret}")
+
+    resp = OM_entry.Blt_Restart()
+    logger.info(f"Restart resp: {resp}")
+
+    time.sleep(1)
+
+    Example_EraseHalf(OM_entry)
+
+    time.sleep(5)
+
+    Example_GetFW_ID(OM_entry)
+    Example_CheckValid(OM_entry)
+
+    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v02_10_07_m.bin')
+    logger.info(f"FW_upload ret: {ret}")
+
+    Example_CheckValid(OM_entry)
+
+    resp = OM_entry.Blt_CopyAndGo(file_path='FWs/OMMCU_v02_10_07_m.bin')
+    logger.info(f"Copy and go res: {resp}")
+    
+    time.sleep(1)
+
+    Example_CheckValid(OM_entry)
+    Example_GetFW_ID(OM_entry)
 
 
 # Example Usagepymodbus

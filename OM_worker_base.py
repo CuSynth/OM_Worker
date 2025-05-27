@@ -220,6 +220,14 @@ class OM_Interface:
         response = self.modbus_worker.send_request(command)
         return response
 
+    def Cmd_GAMTake(self):
+        pack = OM_build_cmd_GAM_take()
+        registers = PackToRegisters(pack)
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
+        logger.debug(f"Sending SSTake command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        return response
+
     def _Cmd_SetMnfID(self):
         pack = [0x1F, 0x00, 0x02, 0x00, 0x10, 0x00, 0x01, 0x00]
         registers = PackToRegisters(pack)
@@ -249,8 +257,6 @@ class OM_Interface:
             data = RegistersToPack(response["data"])
             response["data"] = {"MnfID": OM_MnfID(data)}
         return response
-
-
 
     def Data_GetNonCanCurrBlock(self):
         command = self._build_command(ModbusRequestType.READ, OM_CMD_REG_ADDR+OM_CUR_REGION_OFF, count=OM_CUR_REGION_LEN)
@@ -287,6 +293,16 @@ class OM_Interface:
         if "data" in response:
             response["data"] = OM_parse_FWVer(response["data"])
         return response        
+
+    def Data_GetGAM(self):
+        command = self._build_command(ModbusRequestType.READ, OM_GAM_REG_ADDR+OM_GAM_DATA_OFF, count=OM_GAM_DATA_LEN)
+        response = self.modbus_worker.send_request(command, blocking=True, timeout=1)
+        logger.debug(f"Getting GAM data: {command.__dict__}")
+        if "data" in response:
+            response["data"] = OM_GAM_parse(response["data"])
+        return response
+
+
 
 
     def _CANWrp_ExecCmd(self, VarID: int = 14, Offset : int = 0, RTR: int = 1, data: list = [], DLen: int = 0):
