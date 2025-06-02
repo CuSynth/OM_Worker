@@ -9,8 +9,8 @@ BAUDRATE    = 500000
 
 def Playground(OM_entry: OM_Interface):
     Example_GetGAM(OM_entry=OM_entry)
-    # Example_Read_Grayscale_Photo(OM_entry=OM_entry)
-    # Example_Read_Grayscale_Lines(OM_entry=OM_entry, start_line=100, end_line=300)
+    Example_Read_Grayscale_Photo(OM_entry=OM_entry)
+    Example_Read_Grayscale_Lines(OM_entry=OM_entry, start_line=100, end_line=300)
     Example_Read_Thermal_Photo(OM_entry=OM_entry)
 
 
@@ -35,6 +35,7 @@ def main():
         print(e)
 
     modbus_worker.stop()
+    plt.show()
 
 
 
@@ -51,6 +52,11 @@ def Example_Read_Grayscale_Photo(OM_entry: OM_Interface, save_path='OM_img.png')
         img_pil = Image.fromarray(img8, mode="L")
         img_pil.save(save_path)
 
+        plt.figure()
+        plt.imshow(image, cmap="gray")
+        plt.title("SunSens Image")
+        plt.show(block=False)
+        plt.pause(0.001)
 
 def Example_Read_Grayscale_Lines(OM_entry: OM_Interface, start_line: int, end_line: int):
     # Read lines N..M (e.g., lines 10 to 20)
@@ -61,8 +67,11 @@ def Example_Read_Grayscale_Lines(OM_entry: OM_Interface, start_line: int, end_li
         print(f"Grayscale lines {start_line}-{end_line} read successfully. Raw bytes length: {len(result['raw'])}")
 
         # plot lines with imshow
+        plt.figure()
         plt.imshow(result["data"], cmap='gray')
-        plt.show()
+        plt.title("SunSens Image by lines")
+        plt.show(block=False)
+        plt.pause(0.001)
 
 
 def Example_Read_Thermal_Photo(OM_entry: OM_Interface):
@@ -77,10 +86,12 @@ def Example_Read_Thermal_Photo(OM_entry: OM_Interface):
         print(f"Thermal photo read successfully. Raw bytes length: {len(result['raw'])}")
 
         image = np.array(result['data'])
+        plt.figure()
         plt.imshow(image, cmap="inferno")
         plt.colorbar(label="Temperature")
         plt.title("Thermal Image")
-        plt.show()
+        plt.show(block=False)
+        plt.pause(0.001)
 
 
 def Example_GetGAM(OM_entry: OM_Interface):

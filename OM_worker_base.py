@@ -11,6 +11,7 @@ from OM_data import *
 from blt_logic import *
 from PIL import Image
 import numpy as np
+from tqdm import tqdm  # Add this import at the top of your file
 
 class ModbusRequestType(Enum):
     READ = 1
@@ -663,7 +664,6 @@ class OM_Interface:
     def Read_SS_Grayscale_Photo(self):
         """
         Reads the full 480x480x2 grayscale image from the device.
-        Optionally saves the image as PNG using Pillow if save_path is given.
         Returns:
             dict: { "data": 2D list [480][480] of uint16, "raw": bytes, "error": ... }
         """
@@ -672,7 +672,7 @@ class OM_Interface:
         parts_per_line = OM_SS_LINE_PARTS
         image = np.zeros((OM_SS_PHOTO_HGHT, OM_SS_PHOTO_WDTH), dtype=np.uint16)
         raw_bytes = bytearray()
-        for line in range(lines):
+        for line in tqdm(range(lines), desc="Grayscale photo", unit="line"):
             line_bytes = bytearray()
             for part in range(parts_per_line):
                 addr = OM_SS_ImgLinePartAddr(line=line, part=part)
@@ -693,7 +693,6 @@ class OM_Interface:
     def Read_SS_Grayscale_Lines(self, start_line: int, end_line: int):
         """
         Reads lines [start_line, end_line) (0-based, end exclusive) of the grayscale image.
-        Optionally saves the lines as PNG using Pillow if save_path is given.
         Returns:
             dict: { "data": 2D list, "raw": bytes, "error": ... }
         """
@@ -703,7 +702,7 @@ class OM_Interface:
         parts_per_line = OM_SS_LINE_PARTS
         result = np.zeros((end_line - start_line, OM_SS_PHOTO_WDTH), dtype=np.uint16)
         raw_bytes = bytearray()
-        for idx, line in enumerate(range(start_line, end_line)):
+        for idx, line in tqdm(enumerate(range(start_line, end_line)), total=(end_line - start_line), desc="Grayscale lines", unit="line"):
             line_bytes = bytearray()
             for part in range(parts_per_line):
                 addr = OM_SS_ImgLinePartAddr(line=line, part=part)
@@ -725,7 +724,6 @@ class OM_Interface:
     def Read_Thermal_Photo(self):
         """
         Reads the full 32x24 float thermal image from the device.
-        If plot=True, displays the image using matplotlib.
         Returns:
             dict: { "data": 2D list [24][32] of float, "raw": bytes, "error": ... }
         """
@@ -734,7 +732,7 @@ class OM_Interface:
         pixels_per_line = OM_HS_PHOTO_WDTH
         result = np.zeros((OM_HS_PHOTO_HGHT, OM_HS_PHOTO_WDTH), dtype=np.float32)
         raw_bytes = bytearray()
-        for line in range(lines):
+        for line in tqdm(range(lines), desc="Thermal photo", unit="line"):
             addr = OM_HS_ImgLineAddr(line)
             command = self._build_command(ModbusRequestType.READ, addr, count=OM_HS_PHOTO_WDTH*2)
             resp = self.send_modbus(command, timeout=2, silent=True)
