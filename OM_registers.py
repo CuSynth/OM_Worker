@@ -33,6 +33,8 @@ OM_GIT_HASH_LEN     = 4
 
 # Sun sensor registers
 OM_SS_REG_ADDR      = 0x2000
+OM_SS_DIRECT_ADDR   = (OM_ADDR_DIRECT_CMD_FLAG | OM_SS_REG_ADDR)
+
 OM_SS_DATA_OFF      = 0
 OM_SS_DATA_LEN      = 16
 
@@ -46,8 +48,11 @@ OM_SS_ALGO_SET_OFF  = 46
 OM_SS_ALGO_SET_LEN  = 24
 
 
+
 # Horizon sensor registers
 OM_HS_REG_ADDR      = 0x3000
+OM_HS_DIRECT_ADDR   = (OM_ADDR_DIRECT_CMD_FLAG | OM_HS_REG_ADDR)
+
 OM_HS_DATA_OFF      = 0
 OM_HS_DATA_LEN      = 194
 

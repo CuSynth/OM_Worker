@@ -4,10 +4,31 @@ from enum import Enum
 from OM_registers import *
 
 
-OM_CMD_TAKE_HS      = 0x21
+OM_CMD_SET_DEV_ID   = 0x13
+OM_CMD_REBOOT       = 0xFE
+
+OM_CMD_TAKE_SS      = 0x21
+OM_CMD_TAKE_HS      = 0x31
+OM_CMD_TAKE_GAM     = 0x41
+
+
+OM_SS_PHOTO_WDTH    = 480
+OM_SS_PHOTO_HGHT    = 480
+OM_SS_PX_SIZE       = 2
+OM_SS_LINE_PARTS    = 4
+OM_SS_PX_PER_PT     = int(OM_SS_PHOTO_WDTH / OM_SS_LINE_PARTS)
+
+OM_HS_PHOTO_WDTH    = 32
+OM_HS_PHOTO_HGHT    = 24
+OM_HS_PX_SIZE       = 4
+
+
+
+
+
 
 def OM_BuildCmd_Reboot():
-    cmd = 0xFE
+    cmd = OM_CMD_REBOOT
     DLen = 0x01
     data = [0x01, 0x30]
     
@@ -17,13 +38,16 @@ def OM_BuildCmd_Reboot():
     return pack
 
 def OM_build_cmd_SS_take():
-    return [0x21]
+    return [OM_CMD_TAKE_SS]
+
+def OM_build_cmd_HS_take():
+    return [OM_CMD_TAKE_HS]
 
 def OM_build_cmd_GAM_take():
-    return [0x41]
+    return [OM_CMD_TAKE_GAM]
 
 def OM_build_set_DevID(ID : int = 2):
-    cmd = 0x13
+    cmd = OM_CMD_SET_DEV_ID
     DLen = 0x01
     data = [ID]
     
@@ -31,6 +55,7 @@ def OM_build_set_DevID(ID : int = 2):
     pack.extend(data)
 
     return pack
+
 
 
 
@@ -44,7 +69,6 @@ def OM_FWVer_parse(Pack: list = []):
 
 def OM_MnfID(Pack: list):
     return f"{Pack[3]:02x}{Pack[2]:02x}{Pack[1]:02x}{Pack[0]:02x}"
-
 
 
 def OM_SS_parse(registers: list = []):
@@ -132,3 +156,11 @@ def OM_parse_FWVer(registers: list = []):
 
 
 
+
+
+
+def OM_SS_ImgLinePartAddr(line: int, part: int):
+    return (OM_SS_DIRECT_ADDR | ((line & 0x01FF) << 2) | (part & 0x03))
+
+def OM_HS_ImgLineAddr(line:int):
+    return (OM_HS_DIRECT_ADDR | (line & 0x3F))

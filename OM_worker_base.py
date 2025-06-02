@@ -9,6 +9,8 @@ from pymodbus.exceptions import ConnectionException
 from OM_registers import *
 from OM_data import *
 from blt_logic import *
+from PIL import Image
+import numpy as np
 
 class ModbusRequestType(Enum):
     READ = 1
@@ -80,33 +82,34 @@ class ModbusWorker(threading.Thread):
             self.client.close()
             logger.info(f"Disconnected from Modbus on {self.port}")
 
-    def run(self):
-        if not self.connect():
-            return
+    # def run(self):
+    #     if not self.connect():
+    #         return
 
-        self.running = True
-        while self.running:
-            try:
-                request = self.request_queue.get(timeout=1)
-                if request is None:
-                    continue
-                logger.debug(f"Processing request: {request.__dict__}")
-                response = self.handle_request(request)
-                logger.debug(f"Received response: {response}")
-                self.response_queue.put(response)
-            except queue.Empty:
-                pass
+    #     self.running = True
+    #     while self.running:
+    #         try:
+    #             request = self.request_queue.get(timeout=1)
+    #             if request is None:
+    #                 continue
+    #             logger.debug(f"Processing request: {request.__dict__}")
+    #             response = self.handle_request(request)
+    #             logger.debug(f"Received response: {response}")
+    #             self.response_queue.put(response)
+    #         except queue.Empty:
+    #             pass
 
-        self.disconnect()
+    #     self.disconnect()
 
     def stop(self):
         self.running = False
         self.request_queue.put(None)
         self.join()
 
-    def handle_request(self, request):
+    def handle_request(self, request, silent=False):
         if request.type == ModbusRequestType.READ:
-            logger.debug(f"Sending READ request to address {request.address}, count {request.count}, slave {request.slave_id}")
+            if not silent:
+                logger.debug(f"Sending READ request to address {request.address}, count {request.count}, slave {request.slave_id}")
             try:
                 result = self.client.read_holding_registers(
                     request.address, count=request.count, slave=request.slave_id
@@ -117,7 +120,8 @@ class ModbusWorker(threading.Thread):
             except Exception as e:
                 return {"error": str(e)}
         elif request.type == ModbusRequestType.WRITE_MULTY:
-            logger.debug(f"Sending WRITE request to address {request.address}, value {request.registers}, slave {request.slave_id}")
+            if not silent:
+                logger.debug(f"Sending WRITE request to address {request.address}, value {request.registers}, slave {request.slave_id}")
             try:
                 result = self.client.write_registers(
                     request.address, request.registers, slave=request.slave_id
@@ -130,23 +134,12 @@ class ModbusWorker(threading.Thread):
         elif request.type == ModbusRequestType.WRITE_SINGLE:
             logger.error("Unsupported!")
             return {"error": "Unsupported"}
-        
-            logger.debug(f"Sending WRITE request to address {request.address}, value {request.registers}, slave {request.slave_id}")
-            try:
-                result = self.client.write_registers(
-                    request.address, request.registers, slave=request.slave_id
-                )
-                if result.isError():
-                    return {"error": str(result)}
-                return {"status": "success"}
-            except Exception as e:
-                return {"error": str(e)}
         else:
             logger.error(f"Unknown request type: {request.type}")
             return {"error": "Unknown request type"}
 
-    def send_request(self, request, blocking=True, timeout=5):
-        self.request_queue.put(request)
+    def send_request(self, request, blocking=True, timeout=5, silent=False):
+        self.request_queue.put((request, silent))
         if blocking:
             start_time = time.time()
             while True:
@@ -160,6 +153,30 @@ class ModbusWorker(threading.Thread):
         else:
             return None
 
+    def run(self):
+        if not self.connect():
+            return
+
+        self.running = True
+        while self.running:
+            try:
+                item = self.request_queue.get(timeout=1)
+                if item is None:
+                    continue
+                if isinstance(item, tuple):
+                    request, silent = item
+                else:
+                    request, silent = item, False
+                if not silent:
+                    logger.debug(f"Processing request: {request.__dict__}")
+                response = self.handle_request(request, silent=silent)
+                if not silent:
+                    logger.debug(f"Received response: {response}")
+                self.response_queue.put(response)
+            except queue.Empty:
+                pass
+
+        self.disconnect()
 
 class OM_Interface:
     def __init__(self, modbus_worker, slave_id=1):
@@ -171,7 +188,6 @@ class OM_Interface:
         if request_type == ModbusRequestType.WRITE_MULTY:
             if reversed_registers:
                 registers = [(((reg & 0x00FF) << 8) | ((reg >> 8) & 0x00FF)) for reg in registers]
-            
             return ModbusRequest(
                 type=ModbusRequestType.WRITE_MULTY, address=address, registers=registers, slave_id=self.slave_id
             )
@@ -183,18 +199,8 @@ class OM_Interface:
             logger.error(f"Unknown request type: {request_type}")
             raise ValueError("Unknown request type")
 
-    # def _parse_response(self, response):
-    #     if "error" in response:
-    #         return {"error": response["error"]}
-    #     elif "data" in response:
-    #         return {"data": response["data"]}
-    #     elif "status" in response:
-    #         return {"status": response["status"]}
-    #     else:
-    #         logger.warning(f"Unknown response format: {response}")
-    #         return {"error": "Unknown response format"}
-
-
+    def send_modbus(self, command, blocking=True, timeout=5, silent=False):
+        return self.modbus_worker.send_request(command, blocking=blocking, timeout=timeout, silent=silent)
 
     def Cmd_ForceReboot(self):
         pack = OM_BuildCmd_Reboot()
@@ -220,6 +226,15 @@ class OM_Interface:
         response = self.modbus_worker.send_request(command)
         return response
 
+    def Cmd_HSTake(self):
+        pack = OM_build_cmd_HS_take()
+        registers = PackToRegisters(pack)
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
+        logger.debug(f"Sending HSTake command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        return response
+
+
     def Cmd_GAMTake(self):
         pack = OM_build_cmd_GAM_take()
         registers = PackToRegisters(pack)
@@ -235,7 +250,6 @@ class OM_Interface:
         logger.debug(f"Sending SSTake command: {command.__dict__}")
         response = self.modbus_worker.send_request(command)
         return response
-
 
 
     def Data_GetFWVer(self):
@@ -528,24 +542,7 @@ class OM_Interface:
         command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_BOOT_REG_ADDR+OM_CAN_STR_OFF, registers=registers)
         logger.debug(f"Sending CANEm command: {command.__dict__}")
         response = self.modbus_worker.send_request(command)
-        if "error" in response:
-            return {"error": response["error"]}
-
-        # response = self._CANWrp_ExecCmd(Offset = 0x00080000, RTR = 1)
-        # if "data" in response:
-        #     CANNum, TypeID, DLen, data_resp = response["data"].values()
-        #     parsed_data = OM_ParseFlashStruct(data=data_resp, type=FlashCB_Type.INFO)
-        #     if not "error" in response:
-        #         if (int.from_bytes(parsed_data["Status"], "little") & 0x80) != 0x00:
-        #             response["Status"] = "Error"
-        #         else:
-        #             response["Status"] = "Ok"
-
-        #     response["data"] = parsed_data
-        # return response
-
-
-
+        return response
 
     def Blt_UploadFW(self, image: int, file: str):
         """
@@ -662,3 +659,95 @@ class OM_Interface:
             "status": "success",
             "CRC_check": check_crc
         }
+    
+    def Read_SS_Grayscale_Photo(self):
+        """
+        Reads the full 480x480x2 grayscale image from the device.
+        Optionally saves the image as PNG using Pillow if save_path is given.
+        Returns:
+            dict: { "data": 2D list [480][480] of uint16, "raw": bytes, "error": ... }
+        """
+        logger.info("Starting grayscale photo readout...")
+        lines = OM_SS_PHOTO_HGHT
+        parts_per_line = OM_SS_LINE_PARTS
+        image = np.zeros((OM_SS_PHOTO_HGHT, OM_SS_PHOTO_WDTH), dtype=np.uint16)
+        raw_bytes = bytearray()
+        for line in range(lines):
+            line_bytes = bytearray()
+            for part in range(parts_per_line):
+                addr = OM_SS_ImgLinePartAddr(line=line, part=part)
+                command = self._build_command(ModbusRequestType.READ, addr, count=OM_SS_PX_PER_PT)
+                resp = self.send_modbus(command, timeout=2, silent=True)
+                if "error" in resp:
+                    logger.error(f"Error reading grayscale photo at line {line}, part {part}: {resp['error']}")
+                    return {"error": resp["error"]}
+                regs = resp["data"]
+                part_bytes_data = RegistersToPack(regs)
+                line_bytes.extend(part_bytes_data)
+            for px in range(480):
+                val = int.from_bytes(line_bytes[px*2:px*2+2], "little")
+                image[line, px] = val
+            raw_bytes.extend(line_bytes)
+        return {"data": image.tolist(), "raw": bytes(raw_bytes)}
+
+    def Read_SS_Grayscale_Lines(self, start_line: int, end_line: int):
+        """
+        Reads lines [start_line, end_line) (0-based, end exclusive) of the grayscale image.
+        Optionally saves the lines as PNG using Pillow if save_path is given.
+        Returns:
+            dict: { "data": 2D list, "raw": bytes, "error": ... }
+        """
+        logger.info(f"Starting grayscale lines readout: {start_line} to {end_line}...")
+        if start_line < 0 or end_line > OM_SS_PHOTO_HGHT or start_line >= end_line:
+            return {"error": "Invalid line range"}
+        parts_per_line = OM_SS_LINE_PARTS
+        result = np.zeros((end_line - start_line, OM_SS_PHOTO_WDTH), dtype=np.uint16)
+        raw_bytes = bytearray()
+        for idx, line in enumerate(range(start_line, end_line)):
+            line_bytes = bytearray()
+            for part in range(parts_per_line):
+                addr = OM_SS_ImgLinePartAddr(line=line, part=part)
+                command = self._build_command(ModbusRequestType.READ, addr, count=OM_SS_PX_PER_PT)
+                resp = self.send_modbus(command, timeout=2, silent=True)
+                if "error" in resp:
+                    logger.error(f"Error reading grayscale line {line}, part {part}: {resp['error']}")
+                    return {"error": resp["error"]}
+                regs = resp["data"]
+                part_bytes_data = RegistersToPack(regs)
+                line_bytes.extend(part_bytes_data)
+            for px in range(480):
+                val = int.from_bytes(line_bytes[px*2:px*2+2], "little")
+                result[idx, px] = val
+            raw_bytes.extend(line_bytes)
+        logger.info("Grayscale lines readout complete.")
+        return {"data": result.tolist(), "raw": bytes(raw_bytes)}
+
+    def Read_Thermal_Photo(self):
+        """
+        Reads the full 32x24 float thermal image from the device.
+        If plot=True, displays the image using matplotlib.
+        Returns:
+            dict: { "data": 2D list [24][32] of float, "raw": bytes, "error": ... }
+        """
+        logger.info("Starting thermal photo readout...")
+        lines = OM_HS_PHOTO_HGHT
+        pixels_per_line = OM_HS_PHOTO_WDTH
+        result = np.zeros((OM_HS_PHOTO_HGHT, OM_HS_PHOTO_WDTH), dtype=np.float32)
+        raw_bytes = bytearray()
+        for line in range(lines):
+            addr = OM_HS_ImgLineAddr(line)
+            command = self._build_command(ModbusRequestType.READ, addr, count=OM_HS_PHOTO_WDTH*2)
+            resp = self.send_modbus(command, timeout=2, silent=True)
+            if "error" in resp:
+                logger.error(f"Error reading thermal photo at line {line}: {resp['error']}")
+                return {"error": resp["error"]}
+            regs = resp["data"]
+            line_bytes = bytearray(RegistersToPack(regs))
+            floats = [struct.unpack("<f", line_bytes[i*4:i*4+4])[0] for i in range(pixels_per_line)]
+            result[line, :] = floats
+            raw_bytes.extend(line_bytes)
+        logger.info("Thermal photo readout complete.")
+        return {"data": result.tolist(), "raw": bytes(raw_bytes)}
+
+
+

@@ -1,5 +1,6 @@
 from OM_worker_base import *
 from loguru import logger
+import matplotlib.pyplot as plt
 
 # ResetSrc
 SLAVE_ADDR  = 2
@@ -8,6 +9,9 @@ BAUDRATE    = 500000
 
 def Playground(OM_entry: OM_Interface):
     Example_GetGAM(OM_entry=OM_entry)
+    # Example_Read_Grayscale_Photo(OM_entry=OM_entry)
+    # Example_Read_Grayscale_Lines(OM_entry=OM_entry, start_line=100, end_line=300)
+    Example_Read_Thermal_Photo(OM_entry=OM_entry)
 
 
 def main():
@@ -34,6 +38,49 @@ def main():
 
 
 
+def Example_Read_Grayscale_Photo(OM_entry: OM_Interface, save_path='OM_img.png'):
+    # Read the full 480x480 grayscale image
+    result = OM_entry.Read_SS_Grayscale_Photo()
+    if "error" in result:
+        logger.info(f"Error reading grayscale photo: {result['error']}")
+    else:
+        logger.info(f"Grayscale photo read successfully. Raw bytes length: {len(result['raw'])}")
+        # Normalize to 8-bit for PNG saving
+        image = np.array(result["data"])
+        img8 = (image / image.max() * 255).astype(np.uint8)
+        img_pil = Image.fromarray(img8, mode="L")
+        img_pil.save(save_path)
+
+
+def Example_Read_Grayscale_Lines(OM_entry: OM_Interface, start_line: int, end_line: int):
+    # Read lines N..M (e.g., lines 10 to 20)
+    result = OM_entry.Read_SS_Grayscale_Lines(start_line, end_line)
+    if "error" in result:
+        print(f"Error reading grayscale lines: {result['error']}")
+    else:
+        print(f"Grayscale lines {start_line}-{end_line} read successfully. Raw bytes length: {len(result['raw'])}")
+
+        # plot lines with imshow
+        plt.imshow(result["data"], cmap='gray')
+        plt.show()
+
+
+def Example_Read_Thermal_Photo(OM_entry: OM_Interface):
+    OM_entry.Cmd_HSTake()
+    time.sleep(0.3)
+
+    # Read the full 32x24 thermal image
+    result = OM_entry.Read_Thermal_Photo()
+    if "error" in result:
+        print(f"Error reading thermal photo: {result['error']}")
+    else:
+        print(f"Thermal photo read successfully. Raw bytes length: {len(result['raw'])}")
+
+        image = np.array(result['data'])
+        plt.imshow(image, cmap="inferno")
+        plt.colorbar(label="Temperature")
+        plt.title("Thermal Image")
+        plt.show()
 
 
 def Example_GetGAM(OM_entry: OM_Interface):
