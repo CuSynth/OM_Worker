@@ -3,15 +3,18 @@ from loguru import logger
 import matplotlib.pyplot as plt
 
 # ResetSrc
-SLAVE_ADDR  = 2
+SLAVE_ADDR  = 3
 COMM_PORT   = "COM9"
 BAUDRATE    = 500000
 
 def Playground(OM_entry: OM_Interface):
     Example_GetGAM(OM_entry=OM_entry)
-    Example_Read_Grayscale_Photo(OM_entry=OM_entry)
-    Example_Read_Grayscale_Lines(OM_entry=OM_entry, start_line=100, end_line=300)
-    Example_Read_Thermal_Photo(OM_entry=OM_entry)
+    OM_entry.slave_id = 2
+    Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=True, save_path='SS_photo/PH_old.png')
+    OM_entry.slave_id = 3
+    Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=True, save_path='SS_photo/PH_new.png')
+    # Example_Read_Grayscale_Lines(OM_entry=OM_entry, start_line=100, end_line=300)
+    # Example_Read_Thermal_Photo(OM_entry=OM_entry)
 
 
 def main():
@@ -39,7 +42,10 @@ def main():
 
 
 
-def Example_Read_Grayscale_Photo(OM_entry: OM_Interface, save_path='OM_img.png'):
+def Example_Read_Grayscale_Photo(OM_entry: OM_Interface, save_path='OM_img.png', photo_take=False):
+    if photo_take:
+        OM_entry.Cmd_SSTake()
+
     # Read the full 480x480 grayscale image
     result = OM_entry.Read_SS_Grayscale_Photo()
     if "error" in result:
