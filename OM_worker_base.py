@@ -317,6 +317,14 @@ class OM_Interface:
             response["data"] = OM_GAM_parse(response["data"])
         return response
 
+    def Data_GetSSMtxSet(self):
+        command = self._build_command(ModbusRequestType.READ, OM_SS_REG_ADDR+OM_SS_MTX_SET_OFF, count=OM_SS_MTX_SET_LEN)
+        response = self.modbus_worker.send_request(command, blocking=True, timeout=1)
+        logger.debug(f"Getting SS matrix set data: {command.__dict__}")
+        if "data" in response:
+            response["data"] = OM_SS_parse_MtxSet(response["data"])
+        return response
+
 
 
 

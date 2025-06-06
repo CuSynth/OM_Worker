@@ -9,12 +9,20 @@ BAUDRATE    = 500000
 
 def Playground(OM_entry: OM_Interface):
     Example_GetGAM(OM_entry=OM_entry)
+
     OM_entry.slave_id = 2
+    Example_GetGAM(OM_entry=OM_entry)
     Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=True, save_path='SS_photo/PH_old.png')
+    Example_Read_Thermal_Photo(OM_entry=OM_entry)
+    ret = OM_entry.Data_GetSSMtxSet()
+    logger.info(f"SS_MTX_Set: {ret}")
+
     OM_entry.slave_id = 3
+    Example_GetGAM(OM_entry=OM_entry)
     Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=True, save_path='SS_photo/PH_new.png')
-    # Example_Read_Grayscale_Lines(OM_entry=OM_entry, start_line=100, end_line=300)
-    # Example_Read_Thermal_Photo(OM_entry=OM_entry)
+    Example_Read_Thermal_Photo(OM_entry=OM_entry)
+    ret = OM_entry.Data_GetSSMtxSet()
+    logger.info(f"SS_MTX_Set: {ret}")
 
 
 def main():
