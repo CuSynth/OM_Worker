@@ -1,13 +1,51 @@
-from OM_worker_base import *
+from OM_worker_base import OM_Interface
+from modbus_worker import ModbusWorker
+from MB_over_CAN_worker import MBOverCANWorker
+from usb_can_driver.usb_can import USB_CAN_Driver
 from loguru import logger
 import matplotlib.pyplot as plt
+import time
+import numpy as np
+from PIL import Image
 
 # ResetSrc
 SLAVE_ADDR  = 3
 COMM_PORT   = "COM9"
 BAUDRATE    = 500000
 
+
+def main():
+    logger.add("logs/OM_wrkr.log", level="DEBUG", rotation="5 MB", retention="4 week")
+    logger.info("Application started")
+
+    
+    try:
+        # interace_worker = ModbusWorker (
+        #         port=COMM_PORT, baudrate=BAUDRATE, stopbits=1, parity="N", bytesize=8
+        # )
+        can_driver = USB_CAN_Driver()
+        can_driver.connect('COM5')
+        interace_worker = MBOverCANWorker(can_driver, dev_id=4, port_to_use=0)
+
+
+        OM_entry = OM_Interface(interace_worker, slave_id=SLAVE_ADDR)    
+        interace_worker.start()
+        time.sleep(0.1)
+        logger.info("Modbus worker started")
+       
+        Example_GetSSData(OM_entry)
+        Playground(OM_entry)
+        Example_GetSSData(OM_entry)
+
+    except Exception as e:
+        print(e)
+
+    interace_worker.stop()
+    plt.show()
+
+
 def Playground(OM_entry: OM_Interface):
+    return 
     OM_entry.slave_id = 2
     Example_GetGAM(OM_entry=OM_entry)
     Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=True, save_path='SS_photo/PH_old.png')
@@ -21,31 +59,6 @@ def Playground(OM_entry: OM_Interface):
     Example_Read_Thermal_Photo(OM_entry=OM_entry)
     ret = OM_entry.Data_GetSSMtxSet()
     logger.info(f"SS_MTX_Set: {ret}")
-
-
-def main():
-    logger.add("logs/OM_wrkr.log", level="DEBUG", rotation="5 MB", retention="4 week")
-    logger.info("Application started")
-    modbus_worker: ModbusWorker = ModbusWorker (
-            port=COMM_PORT, baudrate=BAUDRATE, stopbits=1, parity="N", bytesize=8
-        )
-    try:
-        OM_entry = OM_Interface(modbus_worker, slave_id=SLAVE_ADDR)    
-        modbus_worker.start()
-        time.sleep(0.1)
-        logger.info("Modbus worker started")
-
-
-        Example_GetSSData(OM_entry)
-        Playground(OM_entry)
-        Example_GetSSData(OM_entry)
-
-    except Exception as e:
-        print(e)
-
-    modbus_worker.stop()
-    plt.show()
-
 
 
 def Example_Read_Grayscale_Photo(OM_entry: OM_Interface, save_path='OM_img.png', photo_take=False):
@@ -118,6 +131,7 @@ def Example_GetSSData(OM_entry: OM_Interface):
         logger.info(f"Iteration {i+1}")
         res = OM_entry.Cmd_SSTake()
         logger.info(f"SS_take_data result: {res}")
+        time.sleep(0.2)
 
         res = OM_entry.Data_GetSS()
         logger.info(f"SS_read_data result: {res}")
@@ -365,5 +379,5 @@ def Example_UploadFWAndCopyAndGo(OM_entry: OM_Interface):
 
 # Example Usagepymodbus
 if __name__ == "__main__":
-    main()   
+    main()
 
