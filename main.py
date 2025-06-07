@@ -8,8 +8,6 @@ COMM_PORT   = "COM9"
 BAUDRATE    = 500000
 
 def Playground(OM_entry: OM_Interface):
-    Example_GetGAM(OM_entry=OM_entry)
-
     OM_entry.slave_id = 2
     Example_GetGAM(OM_entry=OM_entry)
     Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=True, save_path='SS_photo/PH_old.png')
@@ -51,9 +49,9 @@ def main():
 
 
 def Example_Read_Grayscale_Photo(OM_entry: OM_Interface, save_path='OM_img.png', photo_take=False):
-    if photo_take:
+    if photo_take:  
         OM_entry.Cmd_SSTake()
-
+    time.sleep(0.3)
     # Read the full 480x480 grayscale image
     result = OM_entry.Read_SS_Grayscale_Photo()
     if "error" in result:
@@ -367,5 +365,5 @@ def Example_UploadFWAndCopyAndGo(OM_entry: OM_Interface):
 
 # Example Usagepymodbus
 if __name__ == "__main__":
-    main()
+    main()   
 
