@@ -133,6 +133,19 @@ def OM_GAM_parse(registers: list):
 
     return ret
 
+def OM_SS_parse_AlgoSet(registers: list = []):
+    if len(registers) != OM_SS_ALGO_SET_LEN:
+        return None
+
+    hex_array = bytearray()
+    for i in range(0, OM_SS_ALGO_SET_LEN):
+        hex_array.extend(struct.pack(">H", registers[i]))
+
+    # Parse them as 11x float and 2xU16
+    algo_set = struct.unpack("<fffffffffffHH", hex_array)
+    return {"Settings" : algo_set, "Hexed" : [f"0x{val:04X}" for val in hex_array]}
+
+
 
 def OM_parse_DevID(registers: list = []):
     if len(registers) != OM_DEV_ID_LEN:

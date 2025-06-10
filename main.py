@@ -9,30 +9,35 @@ import numpy as np
 from PIL import Image
 
 # ResetSrc
-SLAVE_ADDR  = 3
+SLAVE_ADDR  = 2
 COMM_PORT   = "COM9"
 BAUDRATE    = 500000
 
 
+path_to_work = 'OM_GRI_log/GRI00/'
+
 def main():
-    logger.add("logs/OM_wrkr.log", level="DEBUG", rotation="5 MB", retention="4 week")
+    logger.add(path_to_work + "logging.log", level="DEBUG", rotation="5 MB", retention="4 week")
     logger.info("Application started")
 
     
     try:
-        # interace_worker = ModbusWorker (
-        #         port=COMM_PORT, baudrate=BAUDRATE, stopbits=1, parity="N", bytesize=8
-        # )
-        can_driver = USB_CAN_Driver()
-        can_driver.connect('COM5')
-        interace_worker = MBOverCANWorker(can_driver, dev_id=4, port_to_use=0)
+        if True:
+            interace_worker = ModbusWorker (
+                    port=COMM_PORT, baudrate=BAUDRATE, stopbits=1, parity="N", bytesize=8
+            )
+        else:
+            can_driver = USB_CAN_Driver()
+            can_driver.connect('COM5')
+            interace_worker = MBOverCANWorker(can_driver, dev_id=4, port_to_use=0)
 
 
         OM_entry = OM_Interface(interace_worker, slave_id=SLAVE_ADDR)    
         interace_worker.start()
         time.sleep(0.1)
         logger.info("Modbus worker started")
-       
+
+        # GRI_tst(OM_entry)       
         Example_GetSSData(OM_entry)
         Playground(OM_entry)
         Example_GetSSData(OM_entry)
@@ -45,13 +50,22 @@ def main():
 
 
 def Playground(OM_entry: OM_Interface):
-    return 
+    # Example_GetSetDevID(OM_entry, ID=2)
+    # Example_UploadFW(OM_entry)
+    # Example_FixValid(OM_entry)
+    # Example_CheckCRC(OM_entry)
+    # Example_SetPref(OM_entry)
+    Example_GetFW_ID(OM_entry)
+
+    # return
+
     OM_entry.slave_id = 2
     Example_GetGAM(OM_entry=OM_entry)
     Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=True, save_path='SS_photo/PH_old.png')
     Example_Read_Thermal_Photo(OM_entry=OM_entry)
     ret = OM_entry.Data_GetSSMtxSet()
     logger.info(f"SS_MTX_Set: {ret}")
+    Example_GetFW_ID(OM_entry)
 
     OM_entry.slave_id = 3
     Example_GetGAM(OM_entry=OM_entry)
@@ -59,11 +73,48 @@ def Playground(OM_entry: OM_Interface):
     Example_Read_Thermal_Photo(OM_entry=OM_entry)
     ret = OM_entry.Data_GetSSMtxSet()
     logger.info(f"SS_MTX_Set: {ret}")
+    Example_GetFW_ID(OM_entry)
+
+def GRI_tst(OM_entry: OM_Interface):
+    OM_ID = '10100'
+    OM_entry.slave_id = 0x55
+
+    FWID_rd_res = OM_entry.Data_GetFW_ID()
+    logger.info(f"FW_ID: {FWID_rd_res}")
+
+    ret = OM_entry.Data_GetDevID()
+    logger.info(f"DevID: {ret}")
+
+    ret = OM_entry.Data_GetMnfID()
+    logger.info(f"MnfID: {ret}")
+
+    Example_CheckCRC(OM_entry)
+
+    Example_GetGAM(OM_entry)
+
+    Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=True, save_path=path_to_work+'/Photo/SS_'+OM_ID+'.png')
+
+    Example_Read_Thermal_Photo(OM_entry=OM_entry, save_path=path_to_work+'/Photo/HS_'+OM_ID+'.png')
+
+    ret = OM_entry.Data_GetSSMtxSet()
+    logger.info(f"SS_MTX_Set: {ret}")
+
+    ret = OM_entry.Data_GetSSAlgoSet()
+    logger.info(f"SS_Algo_Set: {ret}")
+
+    return
+
 
 
 def Example_Read_Grayscale_Photo(OM_entry: OM_Interface, save_path='OM_img.png', photo_take=False):
-    if photo_take:  
+    if photo_take:
         OM_entry.Cmd_SSTake()
+        time.sleep(0.2)
+        res = OM_entry.Data_GetSS()
+        logger.info(f"SS_read_data result: {res}")
+        res = OM_entry.Data_GetCmdStatus()
+        logger.info(f"SS_cmd_status result: {res}")
+
     time.sleep(0.3)
     # Read the full 480x480 grayscale image
     result = OM_entry.Read_SS_Grayscale_Photo()
@@ -99,7 +150,7 @@ def Example_Read_Grayscale_Lines(OM_entry: OM_Interface, start_line: int, end_li
         plt.pause(0.001)
 
 
-def Example_Read_Thermal_Photo(OM_entry: OM_Interface):
+def Example_Read_Thermal_Photo(OM_entry: OM_Interface, save_path=None):
     OM_entry.Cmd_HSTake()
     time.sleep(0.3)
 
@@ -118,13 +169,19 @@ def Example_Read_Thermal_Photo(OM_entry: OM_Interface):
         plt.show(block=False)
         plt.pause(0.001)
 
+        if save_path:
+            img8 = (image / image.max() * 255).astype(np.uint8)
+            img_pil = Image.fromarray(img8, mode="L")
+            img_pil.save(save_path)
+
+
 
 def Example_GetGAM(OM_entry: OM_Interface):
     ret = OM_entry.Cmd_GAMTake()
-    logger.info(f"GAM cmd send: {ret}")
+    # logger.info(f"GAM cmd sent: {ret}")
 
     ret = OM_entry.Data_GetGAM()
-    logger.info(f"GAM data read: {ret}")
+    logger.info(f"GAM: {ret}")
 
 def Example_GetSSData(OM_entry: OM_Interface):
     for i in range(1):
@@ -137,15 +194,22 @@ def Example_GetSSData(OM_entry: OM_Interface):
         logger.info(f"SS_read_data result: {res}")
         time.sleep(0.1)
 
-def Example_GetSetDevID(OM_entry: OM_Interface):
+        res = OM_entry.Data_GetCmdStatus()
+        logger.info(f"SS_cmd_status result: {res}")
+
+
+def Example_GetSetDevID(OM_entry: OM_Interface, ID: int = 3):
     DevID_rd_res = OM_entry.Data_GetDevID()
-    logger.debug(f"Current DevID result: {DevID_rd_res}")
+    logger.info(f"Current DevID result: {DevID_rd_res}")
     
-    set_DevID_result = OM_entry.Cmd_SetDevID(2)
-    logger.debug(f"OM_set_DevID result: {set_DevID_result}")
+    set_DevID_result = OM_entry.Cmd_SetDevID(ID)
+    logger.info(f"OM_set_DevID result: {set_DevID_result}")
     
     DevID_rd_res = OM_entry.Data_GetDevID()
-    logger.debug(f"Current DevID result: {DevID_rd_res}")
+    logger.info(f"Current DevID result: {DevID_rd_res}")
+
+    OM_entry.Cmd_ForceReboot()
+    time.sleep(0.2)
 
 
 def Example_GetFW_ID(OM_entry: OM_Interface):
@@ -200,11 +264,13 @@ def Example_CheckValid(OM_entry: OM_Interface):
 def Example_CheckCRC(OM_entry: OM_Interface):
     Example_CheckValid(OM_entry)
 
-    resp = OM_entry.Blt_CheckCRC(0, file_path='FWs/OMMCU_v02_09_09_m.bin')
+    img_0_file = 'OM_GRI_log/OMMCU_v03_00_01_m.bin'
+    logger.info(f"Checking CRC for img_0: {img_0_file}")
+    resp = OM_entry.Blt_CheckCRC(0, file_path=img_0_file)
     logger.info(f"Check valid of img_0 res: {resp}")
 
-    resp = OM_entry.Blt_CheckCRC(1, file_path='FWs/OMMCU_v02_09_09_r.bin')
-    logger.info(f"Check valid of img_1 res: {resp}")
+    # resp = OM_entry.Blt_CheckCRC(1, file_path='FWs/OMMCU_v02_10_21_r.bin')
+    # logger.info(f"Check valid of img_1 res: {resp}")
 
 
 
@@ -241,15 +307,14 @@ def Example_FixValid(OM_entry: OM_Interface):
     resp = OM_entry.Blt_CheckImgValid(0)
     logger.info(f"Check CRC_1 res: {resp}")
 
-
     resp = OM_entry.Blt_CheckImgValid(1)
-    logger.info(f"Check CRC_1 res: {resp}")
+    logger.info(f"Check CRC_2 res: {resp}")
     
-    resp = OM_entry.Blt_FixValid(1)
-    logger.info(f"Fix CRC_1 res: {resp}")
+    # resp = OM_entry.Blt_FixValid(1)
+    # logger.info(f"Fix CRC_1 res: {resp}")
 
-    resp = OM_entry.Blt_CheckImgValid(1)
-    logger.info(f"Check CRC_1 res: {resp}")
+    # resp = OM_entry.Blt_CheckImgValid(1)
+    # logger.info(f"Check CRC_1 res: {resp}")
 
 
 def Example_Reboot(OM_entry: OM_Interface):
@@ -278,6 +343,8 @@ def Example_SetPref(OM_entry: OM_Interface):
     logger.info(f"Restart resp: {resp}")
 
     time.sleep(2)
+
+    # return
 
     CB_resp = OM_entry.CANWrp_ReadCB()
     logger.info(f"Current CB: {CB_resp}")
@@ -333,7 +400,7 @@ def Example_UploadFW(OM_entry: OM_Interface):
     Example_CheckValid(OM_entry)
 
 
-    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v02_10_01_r.bin')
+    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v02_10_21_r.bin')
     logger.info(f"FW_upload ret: {ret}")
 
     Example_CheckValid(OM_entry)

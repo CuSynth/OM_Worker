@@ -175,3 +175,4 @@ cython_debug/
 logs/
 *.bin
 *.hex
+OM_GRI_log/

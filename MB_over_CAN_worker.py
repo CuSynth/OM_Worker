@@ -6,6 +6,9 @@ import asyncio
 from usb_can_driver.usb_can import USB_CAN_Driver
 from usb_can_driver.canv_structs import IVar
 
+bg = 0
+diff = 0
+
 class MBOverCANWorker(threading.Thread, OMCommInterface):
     def __init__(self, can_driver, dev_id=4, port_to_use=0):
         super().__init__()
@@ -86,7 +89,9 @@ class MBOverCANWorker(threading.Thread, OMCommInterface):
                 data_bytes += reg.to_bytes(2, "big")
             payload = data_bytes
             ivar = IVar(self.dev_id, var_id, 8)
+            bg = time.time()
             asyncio.run(self.can_driver.write(ivar, payload))
+            diff = bg - time.time()
             # Command/config write: only config, no data
             payload_cmd = bytearray([
                 0,  # exec status (dummy)
@@ -99,7 +104,9 @@ class MBOverCANWorker(threading.Thread, OMCommInterface):
                 (len(request.registers) >> 8) & 0xFF,
             ])
             ivar = IVar(self.dev_id, var_id, 0)
+            bg = time.time()
             asyncio.run(self.can_driver.write(ivar, payload_cmd))
+            diff = time.time() - bg
             return {"status": "success"}
         else:
             return {"error": "Unsupported request type"}

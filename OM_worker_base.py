@@ -77,7 +77,7 @@ class OM_Interface:
 
     def _Cmd_SetMnfID(self):
         pack = [0x1F, 0x00, 0x02, 0x00, 0x10, 0x00, 0x01, 0x00]
-        registers = PackToRegisters(pack)
+        registers = PackToRegisters(pack=pack)
         command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
         logger.debug(f"Sending SSTake command: {command.__dict__}")
         response = self.modbus_worker.send_request(command)
@@ -156,23 +156,36 @@ class OM_Interface:
             response["data"] = OM_SS_parse_MtxSet(response["data"])
         return response
 
+    def Data_GetCmdStatus(self):
+        command = self._build_command(ModbusRequestType.READ, OM_CMD_REG_ADDR+OM_STATUS_OFF, count=OM_STATUS_LEN)
+        response = self.modbus_worker.send_request(command, blocking=True, timeout=1)
+        logger.debug(f"Getting command status data: {command.__dict__}")
+        return response
+
+    def Data_GetSSAlgoSet(self):
+        command = self._build_command(ModbusRequestType.READ, OM_SS_REG_ADDR+OM_SS_ALGO_SET_OFF, count=OM_SS_ALGO_SET_LEN)
+        response = self.modbus_worker.send_request(command, blocking=True, timeout=1)
+        logger.debug(f"Getting SS algo set data: {command.__dict__}")
+        if "data" in response:
+            response["data"] = OM_SS_parse_AlgoSet(response["data"])
+        return response
 
 
-
-    def _CANWrp_ExecCmd(self, VarID: int = 14, Offset : int = 0, RTR: int = 1, data: list = [], DLen: int = 0):
+    def _CANWrp_ExecCmd(self, VarID: int = 14, Offset : int = 0, RTR: int = 1, data: list = [], DLen: int = 0, silent=False):
         pack = OM_build_CANWrp_WriteWrappedCmd(VarID=VarID, Offset=Offset, RTR=RTR, data=data, DLen=DLen)
         registers = PackToRegisters(pack=pack)
 
         command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_BOOT_REG_ADDR+OM_CAN_STR_OFF, registers=registers)
-        logger.debug(f"Sending CANEm command: {command.__dict__}")
-        response = self.modbus_worker.send_request(command)
+        if not silent:
+            logger.debug(f"Sending CANEm command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command, silent=silent)
         if "error" in response:
             return {"error": response["error"]}
 
         command = self._build_command(ModbusRequestType.READ, OM_BOOT_REG_ADDR+OM_CAN_STR_OFF, count=OM_CAN_STR_LEN)
-        response = self.modbus_worker.send_request(command, timeout=1)
-        logger.debug(f"Reading CANEm status: {command.__dict__}")
-
+        response = self.modbus_worker.send_request(command, timeout=1, silent=silent)
+        if not silent:
+            logger.debug(f"Reading CANEm status: {command.__dict__}")
         if "data" in response:        
             resp_pack = RegistersToPack(response["data"])
             CANNum, TypeID, DLen, data_resp = OM_Parse_CANEmWrap(resp_pack)
@@ -188,8 +201,8 @@ class OM_Interface:
 
         return response
 
-    def CANWrp_ReadCB(self):
-        response = self._CANWrp_ExecCmd(Offset = 0x00080000, RTR = 1)
+    def CANWrp_ReadCB(self, silent=False):
+        response = self._CANWrp_ExecCmd(Offset = 0x00080000, RTR = 1, silent=silent)
         if "data" in response:
             CANNum, TypeID, DLen, data_resp = response["data"].values()
             parsed_data = OM_ParseFlashStruct(data=data_resp, type=FlashCB_Type.INFO)
@@ -436,52 +449,52 @@ class OM_Interface:
         retry_limit = 3
 
         logger.info(f"Starting firmware upload: {file}, size: {total_len} bytes")
-        while offset < total_len:
-            block = fw_data[offset:offset + block_size]
-            block_offset = 0
-            retries = 0
-            while block_offset < len(block):
-                chunk = block[block_offset:block_offset + chunk_size]
-                # Pad chunk if less than 8 bytes
-                if len(chunk) < chunk_size:
-                    logger.debug(f"Padding chunk at offset {offset + block_offset}: {chunk}")
-                    chunk = chunk + b'\xFE' * (chunk_size - len(chunk))
-                # Prepare CAN wrapped command
-                pack = OM_build_CANWrp_WriteWrappedCmd(
-                    VarID=14,
-                    Offset=start_addr + offset + block_offset,
-                    RTR=0,
-                    data=list(chunk),
-                    DLen=len(chunk)
-                )
-                registers = PackToRegisters(pack=pack)
-                command = self._build_command(
-                    ModbusRequestType.WRITE_MULTY,
-                    OM_BOOT_REG_ADDR + OM_CAN_STR_OFF,
-                    registers=registers
-                )
-                response = self.modbus_worker.send_request(command)
-                if "error" in response:
-                    logger.error(f"Write error at offset {offset + block_offset}: {response['error']}")
-                    return {"error": f"Write error at offset {offset + block_offset}: {response['error']}"}
-                block_offset += chunk_size
-
-            logger.info(f"Written {min(offset + block_size, total_len)} / {total_len} bytes ({100 * min(offset + block_size, total_len) // total_len}%)")
-            time.sleep(0.1)
-            # After each 128 bytes, check control block status
-            for _ in range(retry_limit):
-                cb_resp = self.CANWrp_ReadCB()
-                if "data" in cb_resp:
-                    status = cb_resp["data"].get("Status", 0)
-                    # 0x80 is error, 0x10 is OK
-                    if (int.from_bytes(status) & 0x80) == 0:
-                        break  # OK
-                retries += 1
-                if retries >= retry_limit:
-                    logger.error(f"Write failed at offset {offset}, status: {cb_resp}")
-                    return {"error": f"Write failed at offset {offset}, status: {cb_resp}"}
-                time.sleep(0.2)
-            offset += block_size
+        with tqdm(total=total_len, desc="FW upload", unit="B") as pbar:
+            while offset < total_len:
+                block = fw_data[offset:offset + block_size]
+                block_offset = 0
+                retries = 0
+                while block_offset < len(block):
+                    chunk = block[block_offset:block_offset + chunk_size]
+                    # Pad chunk if less than 8 bytes
+                    if len(chunk) < chunk_size:
+                        logger.debug(f"Padding chunk at offset {offset + block_offset}: {chunk}")
+                        chunk = chunk + b'\xFE' * (chunk_size - len(chunk))
+                    # Prepare CAN wrapped command
+                    pack = OM_build_CANWrp_WriteWrappedCmd(
+                        VarID=14,
+                        Offset=start_addr + offset + block_offset,
+                        RTR=0,
+                        data=list(chunk),
+                        DLen=len(chunk)
+                    )
+                    registers = PackToRegisters(pack=pack)
+                    command = self._build_command(
+                        ModbusRequestType.WRITE_MULTY,
+                        OM_BOOT_REG_ADDR + OM_CAN_STR_OFF,
+                        registers=registers
+                    )
+                    response = self.modbus_worker.send_request(command, silent=True)
+                    if "error" in response:
+                        logger.error(f"Write error at offset {offset + block_offset}: {response['error']}")
+                        return {"error": f"Write error at offset {offset + block_offset}: {response['error']}"}
+                    block_offset += chunk_size
+                    pbar.update(chunk_size)
+                time.sleep(0.1)
+                # After each 128 bytes, check control block status
+                for _ in range(retry_limit):
+                    cb_resp = self.CANWrp_ReadCB(silent=True)
+                    if "data" in cb_resp:
+                        status = cb_resp["data"].get("Status", 0)
+                        # 0x80 is error, 0x10 is OK
+                        if (int.from_bytes(status) & 0x80) == 0:
+                            break  # OK
+                    retries += 1
+                    if retries >= retry_limit:
+                        logger.error(f"Write failed at offset {offset}, status: {cb_resp}")
+                        return {"error": f"Write failed at offset {offset}, status: {cb_resp}"}
+                    time.sleep(0.2)
+                offset += block_size
 
         logger.info("Firmware upload complete, verifying CRC and validity...")
         # 6. Once file content is loaded - check FW CRC and Valid.
