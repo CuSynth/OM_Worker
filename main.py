@@ -7,9 +7,10 @@ import matplotlib.pyplot as plt
 import time
 import numpy as np
 from PIL import Image
+import cv2 
 
 # ResetSrc
-SLAVE_ADDR  = 2
+SLAVE_ADDR  = 0x55
 COMM_PORT   = "COM9"
 BAUDRATE    = 500000
 
@@ -37,7 +38,7 @@ def main():
         time.sleep(0.1)
         logger.info("Modbus worker started")
 
-        # GRI_tst(OM_entry)       
+        # GRI_tst(OM_entry)
         Example_GetSSData(OM_entry)
         Playground(OM_entry)
         Example_GetSSData(OM_entry)
@@ -127,6 +128,13 @@ def Example_Read_Grayscale_Photo(OM_entry: OM_Interface, save_path='OM_img.png',
         img8 = (image / image.max() * 255).astype(np.uint8)
         img_pil = Image.fromarray(img8, mode="L")
         img_pil.save(save_path)
+
+        color_img = cv2.cvtColor(img8, cv2.COLOR_BAYER_BG2RGB)
+        plt.figure()
+        plt.imshow(color_img)
+        plt.title("SunSens Bayer Color Image")
+        plt.show(block=False)
+        plt.pause(0.001)
 
         plt.figure()
         plt.imshow(image, cmap="gray")
