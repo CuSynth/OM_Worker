@@ -10,12 +10,12 @@ from PIL import Image
 import cv2 
 
 # ResetSrc
-SLAVE_ADDR  = 0x55
+SLAVE_ADDR  = 2
 COMM_PORT   = "COM9"
 BAUDRATE    = 500000
 
 
-path_to_work = 'OM_GRI_log/GRI00/'
+path_to_work = 'log/'
 
 def main():
     logger.add(path_to_work + "logging.log", level="DEBUG", rotation="5 MB", retention="4 week")
@@ -40,7 +40,7 @@ def main():
 
         # GRI_tst(OM_entry)
         Example_GetSSData(OM_entry)
-        Playground(OM_entry)
+        # Playground(OM_entry)
         Example_GetSSData(OM_entry)
 
     except Exception as e:
@@ -51,8 +51,9 @@ def main():
 
 
 def Playground(OM_entry: OM_Interface):
-    # Example_GetSetDevID(OM_entry, ID=2)
-    # Example_UploadFW(OM_entry)
+    # Example_GetSetDevID(OM_entry, ID=3)
+    # return
+    Example_UploadFW(OM_entry)
     # Example_FixValid(OM_entry)
     # Example_CheckCRC(OM_entry)
     # Example_SetPref(OM_entry)
@@ -129,12 +130,12 @@ def Example_Read_Grayscale_Photo(OM_entry: OM_Interface, save_path='OM_img.png',
         img_pil = Image.fromarray(img8, mode="L")
         img_pil.save(save_path)
 
-        color_img = cv2.cvtColor(img8, cv2.COLOR_BAYER_BG2RGB)
-        plt.figure()
-        plt.imshow(color_img)
-        plt.title("SunSens Bayer Color Image")
-        plt.show(block=False)
-        plt.pause(0.001)
+        # color_img = cv2.cvtColor(img8, cv2.COLOR_BAYER_BG2RGB)
+        # plt.figure()
+        # plt.imshow(color_img)
+        # plt.title("SunSens Bayer Color Image")
+        # plt.show(block=False)
+        # plt.pause(0.001)
 
         plt.figure()
         plt.imshow(image, cmap="gray")
@@ -260,7 +261,7 @@ def Example_SysCmd(OM_entry: OM_Interface):
 
 def Example_CheckValid(OM_entry: OM_Interface):
     CB_resp = OM_entry.CANWrp_ReadCB()
-    logger.info(f"Current CB: {CB_resp}")
+    logger.info(f"Current ControlBlock: {CB_resp}")
 
     resp = OM_entry.Blt_CheckImgValid(0)
     logger.info(f"Check CRC_0 res: {resp}")
@@ -388,36 +389,49 @@ def Example_CopyAndGo(OM_entry: OM_Interface):
 
 
 def Example_UploadFW(OM_entry: OM_Interface):
+    logger.info("Starting firmware upload example...")
+    logger.info(f"Getting FW_ID and checking validity...")
     Example_GetFW_ID(OM_entry)
     Example_CheckValid(OM_entry)
 
-
+    logger.info("Setting pref FW to 0...")
     ret = OM_entry.Blt_SetPref(pref=0)
-    logger.info(f"FW_upload ret: {ret}")
+    logger.info(f"Set_pref ret: {ret}")
 
+    logger.info("Restarting the device... (may not return any value)")
     resp = OM_entry.Blt_Restart()
     logger.info(f"Restart resp: {resp}")
 
     time.sleep(1)
 
+    logger.info("Erasing second half of flash memory...")
     Example_EraseHalf(OM_entry)
 
     time.sleep(5)
 
+    logger.info("Getting FW_ID and checking validity after erase...")
     Example_GetFW_ID(OM_entry)
     Example_CheckValid(OM_entry)
 
-
+    logger.info("Uploading firmware...")
     ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v02_10_21_r.bin')
     logger.info(f"FW_upload ret: {ret}")
 
+    logger.info("Checking validity after upload...")
     Example_CheckValid(OM_entry)
     OM_entry.Blt_Restart()
 
     time.sleep(1)
 
+    logger.info("Checking validity after restart...")
     Example_CheckValid(OM_entry)
     Example_GetFW_ID(OM_entry)
+
+    logger.info("Setting pref to 1 and rebooting...")
+    ret = OM_entry.Blt_SetPref(pref=1)
+    logger.info(f"Set_pref ret: {ret}")
+    Example_Reboot(OM_entry)
+
 
 def Example_UploadFWAndCopyAndGo(OM_entry: OM_Interface):
     Example_GetFW_ID(OM_entry)
