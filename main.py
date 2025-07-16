@@ -15,13 +15,12 @@ COMM_PORT   = "COM9"
 BAUDRATE    = 500000
 
 
-path_to_work = 'log/'
+path_to_work = 'OM_GRI_log/Gri04/'
 
 def main():
     logger.add(path_to_work + "logging.log", level="DEBUG", rotation="5 MB", retention="4 week")
     logger.info("Application started")
 
-    
     try:
         if True:
             interace_worker = ModbusWorker (
@@ -29,7 +28,7 @@ def main():
             )
         else:
             can_driver = USB_CAN_Driver()
-            can_driver.connect('COM5')
+            can_driver.connect(COMM_PORT)
             interace_worker = MBOverCANWorker(can_driver, dev_id=4, port_to_use=0)
 
 
@@ -38,10 +37,11 @@ def main():
         time.sleep(0.1)
         logger.info("Modbus worker started")
 
-        # GRI_tst(OM_entry)
-        Example_GetSSData(OM_entry)
+        GRI_tst(OM_entry=OM_entry)
+        # Example_GetSSData(OM_entry)
         # Playground(OM_entry)
-        Example_GetSSData(OM_entry)
+        # res = OM_entry.Data_ReadTemperature()
+        # logger.info(f"Temperature: {res}")
 
     except Exception as e:
         print(e)
@@ -51,35 +51,39 @@ def main():
 
 
 def Playground(OM_entry: OM_Interface):
-    # Example_GetSetDevID(OM_entry, ID=3)
+    # Example_GetSetDevID(OM_entry, ID=4)
     # return
-    Example_UploadFW(OM_entry)
+    # Example_UploadFW(OM_entry)
     # Example_FixValid(OM_entry)
     # Example_CheckCRC(OM_entry)
     # Example_SetPref(OM_entry)
-    Example_GetFW_ID(OM_entry)
+    # Example_GetFW_ID(OM_entry)
 
     # return
 
-    OM_entry.slave_id = 2
-    Example_GetGAM(OM_entry=OM_entry)
-    Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=True, save_path='SS_photo/PH_old.png')
-    Example_Read_Thermal_Photo(OM_entry=OM_entry)
-    ret = OM_entry.Data_GetSSMtxSet()
-    logger.info(f"SS_MTX_Set: {ret}")
-    Example_GetFW_ID(OM_entry)
+    # OM_entry.slave_id = 2
+    # Example_GetGAM(OM_entry=OM_entry)
 
-    OM_entry.slave_id = 3
-    Example_GetGAM(OM_entry=OM_entry)
-    Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=True, save_path='SS_photo/PH_new.png')
-    Example_Read_Thermal_Photo(OM_entry=OM_entry)
-    ret = OM_entry.Data_GetSSMtxSet()
-    logger.info(f"SS_MTX_Set: {ret}")
-    Example_GetFW_ID(OM_entry)
+
+    res = OM_entry.Cmd_SSTake()
+    res = OM_entry.Cmd_HSTake()
+    res = OM_entry.Cmd_GAMTake()
+
+    time.sleep(0.5)
+
+    Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=False, save_path='SS_photo/SunPhoto.png')
+    Example_Read_Thermal_Photo(OM_entry=OM_entry, photo_take=False, save_path="SS_photo/ThtmlPhoto.png")
+    res = OM_entry.Data_GetGAM()
+
+    # ret = OM_entry.Data_GetSSMtxSet()
+    # logger.info(f"SS_MTX_Set: {ret}")
+    # Example_GetFW_ID(OM_entry)
+
+
 
 def GRI_tst(OM_entry: OM_Interface):
-    OM_ID = '10100'
-    OM_entry.slave_id = 0x55
+    OM_ID = '10130'
+    OM_entry.slave_id = 0x06
 
     FWID_rd_res = OM_entry.Data_GetFW_ID()
     logger.info(f"FW_ID: {FWID_rd_res}")
@@ -94,9 +98,9 @@ def GRI_tst(OM_entry: OM_Interface):
 
     Example_GetGAM(OM_entry)
 
-    Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=True, save_path=path_to_work+'/Photo/SS_'+OM_ID+'.png')
+    Example_Read_Grayscale_Photo(OM_entry=OM_entry, save_path=path_to_work+'/Photo/SS_'+OM_ID+'.png', photo_take=True)
 
-    Example_Read_Thermal_Photo(OM_entry=OM_entry, save_path=path_to_work+'/Photo/HS_'+OM_ID+'.png')
+    Example_Read_Thermal_Photo(OM_entry=OM_entry, save_path=path_to_work+'/Photo/HS_'+OM_ID+'.png', photo_take=True)
 
     ret = OM_entry.Data_GetSSMtxSet()
     logger.info(f"SS_MTX_Set: {ret}")
@@ -159,9 +163,10 @@ def Example_Read_Grayscale_Lines(OM_entry: OM_Interface, start_line: int, end_li
         plt.pause(0.001)
 
 
-def Example_Read_Thermal_Photo(OM_entry: OM_Interface, save_path=None):
-    OM_entry.Cmd_HSTake()
-    time.sleep(0.3)
+def Example_Read_Thermal_Photo(OM_entry: OM_Interface, save_path=None, photo_take=False):
+    if photo_take:
+        OM_entry.Cmd_HSTake()
+        time.sleep(0.3)
 
     # Read the full 32x24 thermal image
     result = OM_entry.Read_Thermal_Photo()
@@ -198,7 +203,7 @@ def Example_GetSSData(OM_entry: OM_Interface):
         res = OM_entry.Cmd_SSTake()
         logger.info(f"SS_take_data result: {res}")
         time.sleep(0.2)
-
+ 
         res = OM_entry.Data_GetSS()
         logger.info(f"SS_read_data result: {res}")
         time.sleep(0.1)
@@ -207,7 +212,7 @@ def Example_GetSSData(OM_entry: OM_Interface):
         logger.info(f"SS_cmd_status result: {res}")
 
 
-def Example_GetSetDevID(OM_entry: OM_Interface, ID: int = 3):
+def Example_GetSetDevID(OM_entry: OM_Interface, ID: int = 1):
     DevID_rd_res = OM_entry.Data_GetDevID()
     logger.info(f"Current DevID result: {DevID_rd_res}")
     

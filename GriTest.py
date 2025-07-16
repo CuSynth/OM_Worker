@@ -44,7 +44,7 @@ def main():
             )
         else:
             can_driver = USB_CAN_Driver()
-            can_driver.connect('COM5')
+            can_driver.connect(COMM_PORT)
             interace_worker = MBOverCANWorker(can_driver, dev_id=4, port_to_use=0)
 
 
