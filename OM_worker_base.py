@@ -170,6 +170,19 @@ class OM_Interface:
             response["data"] = OM_SS_parse_AlgoSet(response["data"])
         return response
 
+    def Data_ReadTemperature(self):
+        """
+        Reads the current temperature from the device.
+        Returns:
+            dict: { "temperatures": list[float], "error": ... }
+        """
+        command = self._build_command(ModbusRequestType.READ, OM_CMD_REG_ADDR+OM_TEMP_OFF, count=OM_TEMP_LEN)
+        response = self.modbus_worker.send_request(command, blocking=True, timeout=1)
+        logger.debug(f"Getting temperature data: {command.__dict__}")
+        if "data" in response:
+            response["data"] = OM_SS_parse_Temperature(response["data"])
+        return response
+
 
     def _CANWrp_ExecCmd(self, VarID: int = 14, Offset : int = 0, RTR: int = 1, data: list = [], DLen: int = 0, silent=False):
         pack = OM_build_CANWrp_WriteWrappedCmd(VarID=VarID, Offset=Offset, RTR=RTR, data=data, DLen=DLen)
@@ -598,6 +611,4 @@ class OM_Interface:
             raw_bytes.extend(line_bytes)
         logger.info("Thermal photo readout complete.")
         return {"data": result.tolist(), "raw": bytes(raw_bytes)}
-
-
 

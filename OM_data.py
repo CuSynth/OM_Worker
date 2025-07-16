@@ -180,6 +180,16 @@ def OM_SS_parse_MtxSet(registers: list = []):
     return {"Settings" : mtx, "Hexed" : [f"0x{val:04X}" for val in mtx]}
 
 
+def OM_SS_parse_Temperature(registers: list = []):
+    if len(registers) != OM_TEMP_LEN:
+        return None
+    
+    hex_array = bytearray()
+    for i in range(0, OM_TEMP_LEN):
+        hex_array.extend(struct.pack(">H", registers[i]))
+
+    temp = struct.unpack("<hhh", hex_array)
+    return {"MCU": temp[0], "MGM": temp[1], "GA": temp[2]}
 
 
 def OM_SS_ImgLinePartAddr(line: int, part: int):
