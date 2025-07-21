@@ -75,8 +75,9 @@ class OM_Interface:
         response = self.modbus_worker.send_request(command)
         return response
 
-    def _Cmd_SetMnfID(self):
-        pack = [0x1F, 0x00, 0x02, 0x00, 0x10, 0x00, 0x01, 0x00]
+    def _Cmd_SetMnfID(self, ID: int):
+        pack = [0x1F, 0x00, 0x02, 0x00, ((ID >> 0) & 0xFF), ((ID >> 8) & 0xFF), ((ID >> 16) & 0xFF), ((ID >> 24) & 0xFF)]
+        # pack = [0x1F, 0x00, 0x02, 0x00, 0x10, 0x00, 0x01, 0x00]
         registers = PackToRegisters(pack=pack)
         command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
         logger.debug(f"Sending SSTake command: {command.__dict__}")

@@ -15,10 +15,11 @@ COMM_PORT   = "COM9"
 BAUDRATE    = 500000
 
 
-path_to_work = 'OM_GRI_log/Gri04/'
+path_to_work = 'OM_GRI_log/Gri03/'
+path_mnf = 'mnf_log'
 
 def main():
-    logger.add(path_to_work + "logging.log", level="DEBUG", rotation="5 MB", retention="4 week")
+    logger.add(path_mnf + "logging.log", level="DEBUG", rotation="5 MB", retention="4 week")
     logger.info("Application started")
 
     try:
@@ -37,7 +38,8 @@ def main():
         time.sleep(0.1)
         logger.info("Modbus worker started")
 
-        GRI_tst(OM_entry=OM_entry)
+        MnfProcess(OM_entry=OM_entry)
+        # GRI_tst(OM_entry=OM_entry)
         # Example_GetSSData(OM_entry)
         # Playground(OM_entry)
         # res = OM_entry.Data_ReadTemperature()
@@ -55,7 +57,10 @@ def Playground(OM_entry: OM_Interface):
     # return
     # Example_UploadFW(OM_entry)
     # Example_FixValid(OM_entry)
+    # Example_GetSetDevID(OM_entry, ID=4)
     # Example_CheckCRC(OM_entry)
+    # Example_GetFW_ID(OM_entry)
+
     # Example_SetPref(OM_entry)
     # Example_GetFW_ID(OM_entry)
 
@@ -81,9 +86,20 @@ def Playground(OM_entry: OM_Interface):
 
 
 
-def GRI_tst(OM_entry: OM_Interface):
-    OM_ID = '10130'
-    OM_entry.slave_id = 0x06
+
+
+def MnfProcess(OM_entry: OM_Interface):
+    OM_ID = '10127'
+    OM_ID_hex = 0x00010127
+    NewID = 0x04
+
+    OM_entry.slave_id = 0x55
+
+    OM_entry._Cmd_SetMnfID(ID=OM_ID_hex)
+
+    Example_GetSetDevID(OM_entry, ID=NewID)
+    OM_entry.slave_id = NewID
+    time.sleep(3)
 
     FWID_rd_res = OM_entry.Data_GetFW_ID()
     logger.info(f"FW_ID: {FWID_rd_res}")
@@ -109,6 +125,10 @@ def GRI_tst(OM_entry: OM_Interface):
     logger.info(f"SS_Algo_Set: {ret}")
 
     return
+
+
+
+
 
 
 
@@ -212,7 +232,7 @@ def Example_GetSSData(OM_entry: OM_Interface):
         logger.info(f"SS_cmd_status result: {res}")
 
 
-def Example_GetSetDevID(OM_entry: OM_Interface, ID: int = 1):
+def Example_GetSetDevID(OM_entry: OM_Interface, ID: int):
     DevID_rd_res = OM_entry.Data_GetDevID()
     logger.info(f"Current DevID result: {DevID_rd_res}")
     
@@ -471,7 +491,6 @@ def Example_UploadFWAndCopyAndGo(OM_entry: OM_Interface):
     Example_GetFW_ID(OM_entry)
 
 
-# Example Usagepymodbus
 if __name__ == "__main__":
     main()
 
