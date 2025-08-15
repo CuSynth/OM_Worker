@@ -94,7 +94,7 @@ class ModbusWorker(threading.Thread, OMCommInterface):
                 logger.debug(f"Sending READ request to address {request.address}, count {request.count}, slave {request.slave_id}")
             try:
                 result = self.client.read_holding_registers(
-                    request.address, count=request.count, slave=request.slave_id
+                    request.address, count=request.count, device_id=request.slave_id
                 )
                 if result.isError():
                     return {"error": str(result)}
@@ -106,7 +106,7 @@ class ModbusWorker(threading.Thread, OMCommInterface):
                 logger.debug(f"Sending WRITE request to address {request.address}, value {request.registers}, slave {request.slave_id}")
             try:
                 result = self.client.write_registers(
-                    request.address, request.registers, slave=request.slave_id
+                    request.address, request.registers, device_id=request.slave_id
                 )
                 if result.isError():
                     return {"error": str(result)}

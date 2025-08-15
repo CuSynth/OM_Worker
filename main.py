@@ -10,12 +10,12 @@ from PIL import Image
 import cv2 
 
 # ResetSrc
-SLAVE_ADDR  = 2
-COMM_PORT   = "COM9"
+SLAVE_ADDR  = 6
+COMM_PORT   = "COM7"
 BAUDRATE    = 500000
 
 
-path_to_work = 'OM_GRI_log/Gri03/'
+path_to_work = 'OM_GRI_log/Gri00/'
 path_mnf = 'mnf_log'
 
 def main():
@@ -24,7 +24,7 @@ def main():
 
     try:
         if True:
-            interace_worker = ModbusWorker (
+            interace_worker = ModbusWorker ( 
                     port=COMM_PORT, baudrate=BAUDRATE, stopbits=1, parity="N", bytesize=8
             )
         else:
@@ -38,12 +38,12 @@ def main():
         time.sleep(0.1)
         logger.info("Modbus worker started")
 
-        MnfProcess(OM_entry=OM_entry)
+        # MnfProcess(OM_entry=OM_entry)
         # GRI_tst(OM_entry=OM_entry)
         # Example_GetSSData(OM_entry)
-        # Playground(OM_entry)
-        # res = OM_entry.Data_ReadTemperature()
-        # logger.info(f"Temperature: {res}")
+        Playground(OM_entry)
+        res = OM_entry.Data_ReadTemperature()
+        logger.info(f"Temperature: {res["data"]}")
 
     except Exception as e:
         print(e)
@@ -70,17 +70,21 @@ def Playground(OM_entry: OM_Interface):
     # Example_GetGAM(OM_entry=OM_entry)
 
 
-    res = OM_entry.Cmd_SSTake()
-    res = OM_entry.Cmd_HSTake()
-    res = OM_entry.Cmd_GAMTake()
+    # res = OM_entry.Cmd_SSTake()
+    # res = OM_entry.Cmd_HSTake()
+    # res = OM_entry.Cmd_GAMTake()
 
     time.sleep(0.5)
 
-    Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=False, save_path='SS_photo/SunPhoto.png')
-    Example_Read_Thermal_Photo(OM_entry=OM_entry, photo_take=False, save_path="SS_photo/ThtmlPhoto.png")
-    res = OM_entry.Data_GetGAM()
+    Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=False) # , save_path='Logs/Photos/temp_SS.png'
+    Example_Read_Thermal_Photo(OM_entry=OM_entry, photo_take=False)
+    Example_Read_Thermal_Cluster(OM_entry=OM_entry, photo_take=False)
+    # res = OM_entry.Data_GetGAM()
 
     # ret = OM_entry.Data_GetSSMtxSet()
+    # logger.info(f"SS_MTX_Set: {ret}")
+
+    # ret = OM_entry.Data_GetSSAlgoSet()
     # logger.info(f"SS_MTX_Set: {ret}")
     # Example_GetFW_ID(OM_entry)
 
@@ -208,7 +212,25 @@ def Example_Read_Thermal_Photo(OM_entry: OM_Interface, save_path=None, photo_tak
             img_pil = Image.fromarray(img8, mode="L")
             img_pil.save(save_path)
 
+def Example_Read_Thermal_Cluster(OM_entry: OM_Interface, photo_take=False):
+    if photo_take:
+        OM_entry.Cmd_HSTake()
+        time.sleep(0.3)
 
+    # Read the full 32x24 clustered image
+    result = OM_entry.Read_Thermal_Cluster_Photo()
+    if "error" in result:
+        print(f"Error reading thermal photo: {result['error']}")
+    else:
+        print(f"Thermal photo read successfully. Raw bytes length: {len(result['raw'])}")
+
+        image = np.array(result['data'])
+        plt.figure()
+        plt.imshow(image, cmap="inferno")
+        plt.colorbar(label="Temperature")
+        plt.title("Thermal Image")
+        plt.show(block=False)
+        plt.pause(0.001)
 
 def Example_GetGAM(OM_entry: OM_Interface):
     ret = OM_entry.Cmd_GAMTake()

@@ -197,3 +197,8 @@ def OM_SS_ImgLinePartAddr(line: int, part: int):
 
 def OM_HS_ImgLineAddr(line:int):
     return (OM_HS_DIRECT_ADDR | (line & 0x3F))
+
+def OM_HS_ImgClustLineAddr(line:int):
+    return (OM_HS_DIRECT_CLUST_ADDR | (line & 0x3F))
+
+

@@ -613,3 +613,28 @@ class OM_Interface:
         logger.info("Thermal photo readout complete.")
         return {"data": result.tolist(), "raw": bytes(raw_bytes)}
 
+    def Read_Thermal_Cluster_Photo(self):
+        """
+        Reads the full 32x24 float thermal image from the device.
+        Returns:
+            dict: { "data": 2D list [24][32] of float, "raw": bytes, "error": ... }
+        """
+        logger.info("Starting clustered readout...")
+        lines = OM_HS_PHOTO_HGHT
+        pixels_per_line = OM_HS_PHOTO_WDTH
+        result = np.zeros((OM_HS_PHOTO_HGHT, OM_HS_PHOTO_WDTH), dtype=np.float32)
+        raw_bytes = bytearray()
+        for line in tqdm(range(lines), desc="Thermal photo", unit="line"):
+            addr = OM_HS_ImgClustLineAddr(line)
+            command = self._build_command(ModbusRequestType.READ, addr, count=int(OM_HS_PHOTO_WDTH/2))
+            resp = self.send_modbus(command, timeout=2, silent=True)
+            if "error" in resp:
+                logger.error(f"Error reading thermal photo at line {line}: {resp['error']}")
+                return {"error": resp["error"]}
+            regs = resp["data"]
+            line_bytes = bytearray(RegistersToPack(regs))
+            pixels = [struct.unpack("<b", line_bytes[i:i+1])[0] for i in range(pixels_per_line)]
+            result[line, :] = pixels
+            raw_bytes.extend(line_bytes)
+        logger.info("Thermal photo readout complete.")
+        return {"data": result.tolist(), "raw": bytes(raw_bytes)}

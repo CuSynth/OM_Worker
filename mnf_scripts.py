@@ -5,9 +5,6 @@ from usb_can_driver.usb_can import USB_CAN_Driver
 from loguru import logger
 import matplotlib.pyplot as plt
 import time
-import numpy as np
-from PIL import Image
-import cv2 
 from main import *
 
 # UART (modbus) setup
