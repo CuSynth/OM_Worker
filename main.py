@@ -10,7 +10,7 @@ from PIL import Image
 import cv2 
 
 # ResetSrc
-SLAVE_ADDR  = 6
+SLAVE_ADDR  = 1
 COMM_PORT   = "COM7"
 BAUDRATE    = 500000
 
@@ -23,6 +23,7 @@ def main():
     logger.info("Application started")
 
     try:
+        # True => use RS-485 bridge
         if True:
             interace_worker = ModbusWorker ( 
                     port=COMM_PORT, baudrate=BAUDRATE, stopbits=1, parity="N", bytesize=8
@@ -59,7 +60,7 @@ def Playground(OM_entry: OM_Interface):
     # Example_FixValid(OM_entry)
     # Example_GetSetDevID(OM_entry, ID=4)
     # Example_CheckCRC(OM_entry)
-    # Example_GetFW_ID(OM_entry)
+    Example_GetFW_ID(OM_entry)
 
     # Example_SetPref(OM_entry)
     # Example_GetFW_ID(OM_entry)
@@ -70,11 +71,11 @@ def Playground(OM_entry: OM_Interface):
     # Example_GetGAM(OM_entry=OM_entry)
 
 
-    # res = OM_entry.Cmd_SSTake()
-    # res = OM_entry.Cmd_HSTake()
-    # res = OM_entry.Cmd_GAMTake()
+    res = OM_entry.Cmd_SSTake()
+    res = OM_entry.Cmd_HSTake()
+    res = OM_entry.Cmd_GAMTake()
 
-    time.sleep(0.5)
+    # time.sleep(0.5)
 
     Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=False) # , save_path='Logs/Photos/temp_SS.png'
     Example_Read_Thermal_Photo(OM_entry=OM_entry, photo_take=False)
@@ -220,15 +221,15 @@ def Example_Read_Thermal_Cluster(OM_entry: OM_Interface, photo_take=False):
     # Read the full 32x24 clustered image
     result = OM_entry.Read_Thermal_Cluster_Photo()
     if "error" in result:
-        print(f"Error reading thermal photo: {result['error']}")
+        print(f"Error reading Cluster photo: {result['error']}")
     else:
-        print(f"Thermal photo read successfully. Raw bytes length: {len(result['raw'])}")
+        print(f"Cluster photo read successfully. Raw bytes length: {len(result['raw'])}")
 
         image = np.array(result['data'])
         plt.figure()
         plt.imshow(image, cmap="inferno")
         plt.colorbar(label="Temperature")
-        plt.title("Thermal Image")
+        plt.title("Cluster Image")
         plt.show(block=False)
         plt.pause(0.001)
 

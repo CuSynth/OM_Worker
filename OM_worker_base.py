@@ -6,7 +6,7 @@ from OM_data import *
 from blt_logic import *
 from PIL import Image
 import numpy as np
-from tqdm import tqdm  # Add this import at the top of your file
+from tqdm import tqdm
 from OM_comm_interface import *
 from modbus_worker import *
 
@@ -638,3 +638,17 @@ class OM_Interface:
             raw_bytes.extend(line_bytes)
         logger.info("Thermal photo readout complete.")
         return {"data": result.tolist(), "raw": bytes(raw_bytes)}
+    
+    def Set_Cluster_Bound_Value(self, hot_px:int, earth_min:int, earth_min_area:int):
+        logger.info(f"Setting parameters to HS cluster boundaries: \n\t- Hot pixel temperature: {hot_px}; \n\t- Earth min temperature: {earth_min}; \n\t-Earth min area: {earth_min_area}")
+        pack = list(struct.pack('<HHH', hot_px, earth_min, earth_min_area))
+        registers = PackToRegisters(pack)
+
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_HS_REG_ADDR+OM_HS_ALGO_SET_OFF+OM_HS_CLUST_BOUND_OFF, registers=registers)
+        logger.debug(f"Sending param command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        return response
+
+if __name__ == '__main__':
+    print("Nothing to run here..")
+

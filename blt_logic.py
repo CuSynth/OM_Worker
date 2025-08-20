@@ -6,11 +6,6 @@ import os
 from OM_registers import *
 from CRC_lib import crc32_stm
 
-
-
-
-
-
 FLASH_CMD_ERASE_SECTORS_2           = 0x02
 FLASH_CMD_CHECK_CRC_IMAGE_N         = 0x04
 FLASH_CMD_CHECK_VALID_IMAGE_N       = 0x06
@@ -19,16 +14,6 @@ FLASH_CMD_SET_PREF_BLOCK_N          = 0x0A
 FLASH_CMD_DO_COPY_AND_GO            = 0x0C
 FLASH_CMD_RESTART                   = 0x0E
 FLASH_CMD_ERASE_ONE_SECTOR          = 0x12
-# Write!
-# ResetSrc
-
-
-#define FLASH_STAT_LOAD_OK              0x10
-#define FLASH_STAT_MASK_NIX_ERR         0xC0
-#define FLASH_STAT_MASK_ERR             0x80
-#define FLASH_STAT_FATAL_ERR            0xFF
-
-
 
 class FlashCB_Type(Enum):
     INFO = 1
@@ -194,7 +179,6 @@ def OM_build_BltFixValidImg(img: int):
     return pack
 
 
-
 def OM_build_BltRestart():
     size = 0
     cmd = FLASH_CMD_RESTART
@@ -204,7 +188,6 @@ def OM_build_BltRestart():
             (crc & 0xFF), ((crc >> 8) & 0xFF), ((crc >> 16) & 0xFF), ((crc >> 24) & 0xFF)]
 
     return pack
-
 
 
 def OM_build_CopyAndGo(FW_path: str):
@@ -221,9 +204,6 @@ def OM_build_CopyAndGo(FW_path: str):
             (crc & 0xFF), ((crc >> 8) & 0xFF), ((crc >> 16) & 0xFF), ((crc >> 24) & 0xFF)]
 
     return pack
-
-
-
 
 
 def find_crc_and_size(file_content):
@@ -294,7 +274,7 @@ def analyze_bin_file(file_path):
 
 
 def main():
-    file_path = "FWs/OMMCU_v02_09_07_r.bin"  # Replace with the actual path
+    file_path = "FWs/OMMCU_v03_01_00_r.bin"  # Replace with the actual path
     result = analyze_bin_file(file_path)
     print(result)
     return
