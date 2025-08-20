@@ -85,7 +85,8 @@ def OM_periph_tst(OM_entry: OM_Interface):
     # ===================
     # Измерение и чтение результата ДС
     Example_GetSSData(OM_entry)
-
+    time.sleep(0.2)
+    
     # Чтение ЧБ фото
     Example_Read_Grayscale_Photo(OM_entry=OM_entry, save_path=test_photos_path+'SS_image.png', photo_take=False)
     
@@ -96,7 +97,8 @@ def OM_periph_tst(OM_entry: OM_Interface):
 
     # Измерение ДГ
     OM_entry.Cmd_HSTake()
-
+    time.sleep(0.2)
+    
     # Чтение теплового снимка
     Example_Read_Thermal_Photo(OM_entry=OM_entry, save_path=test_photos_path+'HS_image.png', photo_take=False)
 
