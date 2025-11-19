@@ -80,7 +80,7 @@ class OM_Interface:
         # pack = [0x1F, 0x00, 0x02, 0x00, 0x10, 0x00, 0x01, 0x00]
         registers = PackToRegisters(pack=pack)
         command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
-        logger.debug(f"Sending SSTake command: {command.__dict__}")
+        logger.debug(f"Sending SetMNF command: {command.__dict__}")
         response = self.modbus_worker.send_request(command)
         return response
 
@@ -647,6 +647,16 @@ class OM_Interface:
         command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_HS_REG_ADDR+OM_HS_ALGO_SET_OFF+OM_HS_CLUST_BOUND_OFF, registers=registers)
         logger.debug(f"Sending param command: {command.__dict__}")
         response = self.modbus_worker.send_request(command)
+        return response
+
+    def Data_Get_horizon_points(self, count:int = 1):
+        if count == 0:
+            count = 15
+        command = self._build_command(ModbusRequestType.READ, OM_HS_REG_ADDR+OM_HS_DATA_OFF, count=(2 + count*3*2))
+        response = self.modbus_worker.send_request(command, blocking=True, timeout=1)
+        logger.debug(f"Getting HS data: {command.__dict__}")
+        if "data" in response:
+            response["data"] = OM_HS_DataParse(response["data"])
         return response
 
 if __name__ == '__main__':

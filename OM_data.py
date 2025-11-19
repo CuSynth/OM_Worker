@@ -1,5 +1,6 @@
 import struct
 import ctypes
+import numpy as np
 from enum import Enum
 from OM_registers import *
 
@@ -201,4 +202,20 @@ def OM_HS_ImgLineAddr(line:int):
 def OM_HS_ImgClustLineAddr(line:int):
     return (OM_HS_DIRECT_CLUST_ADDR | (line & 0x3F))
 
+def OM_HS_DataParse(registers: list = []):
+    if len(registers) < 2+1*3*2:
+        return None
+    total_cnt = registers[0]
+    res = registers[1]
+    vect_regs = registers[2:]
+
+    hex_array = bytearray()
+    for i in range(0, len(vect_regs)):
+        hex_array.extend(struct.pack(">H", vect_regs[i]))
+    vect_read = int(len(hex_array)/3/4)
+
+    components = struct.unpack(f'<{"f" * vect_read * 3}', hex_array)
+    vectors = np.array(components).reshape((-1,3))
+
+    return {"Total vectors found" : total_cnt, "Vectors" : vectors}
 

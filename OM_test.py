@@ -14,7 +14,7 @@ COM_PORT   = "COM7"
 COM_BAUD    = 500000
 
 # CAN bus port
-# CAN_COM_PORT = "COM4"
+CAN_COM_PORT = "COM5"
 
 log_name = 'logging.log'
 test_log_path = 'Testing_logs/'
@@ -40,7 +40,7 @@ def OM_TestProcess():
         else:
             can_driver = USB_CAN_Driver()
             can_driver.connect(CAN_COM_PORT)
-            interace_worker = MBOverCANWorker(can_driver, dev_id=4, port_to_use=0)
+            interace_worker = MBOverCANWorker(can_driver, dev_id=5, port_to_use=0)
 
         OM_entry = OM_Interface(interace_worker, slave_id=slave_ID)
         interace_worker.start()
@@ -65,6 +65,7 @@ def OM_periph_tst(OM_entry: OM_Interface):
     FWID_rd_res = OM_entry.Data_GetFW_ID()
     logger.info(f"FW_ID: {FWID_rd_res}")
 
+
     # Чтение адреса ДСГ
     ret = OM_entry.Data_GetDevID()
     logger.info(f"DevID: {ret}")
@@ -88,17 +89,20 @@ def OM_periph_tst(OM_entry: OM_Interface):
     time.sleep(0.2)
     
     # Чтение ЧБ фото
-    Example_Read_Grayscale_Photo(OM_entry=OM_entry, save_path=test_photos_path+'SS_image.png', photo_take=False)
+    # Example_Read_Grayscale_Photo(OM_entry=OM_entry, save_path=test_photos_path+'SS_image.png', photo_take=False)
     
     # ===================
-    # # Установка настроек алгоритма кластеризации (определение горячего на фом=не комнаты)
-    # ret = OM_entry.Set_Cluster_Bound_Value(100, 30, 5)
-    # logger.info(f"Setting clust bound result: {ret}")
+    # Установка настроек алгоритма кластеризации (определение горячего на фом=не комнаты)
+    ret = OM_entry.Set_Cluster_Bound_Value(100, 30, 5)
+    logger.info(f"Setting clust bound result: {ret}")
 
     # Измерение ДГ
     OM_entry.Cmd_HSTake()
     time.sleep(0.2)
     
+    ret = OM_entry.Data_Get_horizon_points()
+    logger.info(f"Getting vectors from HS: {ret}")
+
     # Чтение теплового снимка
     Example_Read_Thermal_Photo(OM_entry=OM_entry, save_path=test_photos_path+'HS_image.png', photo_take=False)
 
