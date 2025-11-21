@@ -24,10 +24,6 @@ OM_HS_PHOTO_HGHT    = 24
 OM_HS_PX_SIZE       = 4
 
 
-
-
-
-
 def OM_BuildCmd_Reboot():
     cmd = OM_CMD_REBOOT
     DLen = 0x01
