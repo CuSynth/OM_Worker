@@ -10,7 +10,7 @@ from PIL import Image
 import cv2 
 
 # ResetSrc
-SLAVE_ADDR = 0x02
+SLAVE_ADDR = 5
 COMM_PORT   = "COM4"
 BAUDRATE    = 500000
 
@@ -26,7 +26,7 @@ def main():
         # True => use RS-485 bridge
         if True:
             interace_worker = ModbusWorker ( 
-                    port=COMM_PORT, baudrate=BAUDRATE, stopbits=1, parity="N", bytesize=8
+                    port=COMM_PORT, baudrate=BAUDRATE, stopbits=1, parity="N", bytesize=8, timeout=0.1,
             )
         else:
             can_driver = USB_CAN_Driver()
@@ -36,18 +36,22 @@ def main():
 
         OM_entry = OM_Interface(interace_worker, slave_id=SLAVE_ADDR)    
         interace_worker.start()
-        time.sleep(0.1)
+        time.sleep(0.2)
         logger.info("Modbus worker started")
 
+        # Example_UploadSecondHalfAndGo(OM_entry=OM_entry, filename='FWs/OMMCU_v03_02_01_r.bin')
+        time.sleep(0.3)
         # MnfFix(OM_entry=OM_entry)
-        MnfProcess(OM_entry=OM_entry)
+        # MnfProcess(OM_entry=OM_entry)
         # GRI_tst(OM_entry=OM_entry)
         # Example_GetSSData(OM_entry)
-        # Playground(OM_entry)
+        Playground(OM_entry)
+
         res = OM_entry.Data_ReadTemperature()
         logger.info(f"Temperature: {res["data"]}")
 
     except Exception as e:
+        print("An error occured!")
         print(e)
 
     interace_worker.stop()
@@ -78,15 +82,17 @@ def Playground(OM_entry: OM_Interface):
     # OM_entry.slave_id = 2
     # Example_GetGAM(OM_entry=OM_entry)
 
+    res = OM_entry.Cmd_SSTake()
+    res = OM_entry.Cmd_HSTake()
+    time.sleep(0.3)
 
-    # res = OM_entry.Cmd_SSTake()
-    # res = OM_entry.Cmd_HSTake()
-    # res = OM_entry.Cmd_GAMTake()
-
-    # time.sleep(0.5)
-
-    # Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=False) # , save_path='Logs/Photos/temp_SS.png'
-    # Example_Read_Thermal_Photo(OM_entry=OM_entry, save_path='Logs/Photos/temp_HS.png', photo_take=True)
+    res = OM_entry.Cmd_GAMTake()
+    time.sleep(0.1)
+    ret = OM_entry.Data_GetGAM()
+    logger.info(f"GAM: {ret}")
+        
+    Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=False) # , save_path='Logs/Photos/temp_SS.png'
+    Example_Read_Thermal_Photo(OM_entry=OM_entry, save_path='Logs/Photos/temp_HS.png', photo_take=True)
     
     # Example_Read_Thermal_Cluster(OM_entry=OM_entry, photo_take=False)
     # res = OM_entry.Data_GetGAM()
@@ -162,18 +168,18 @@ def MnfFix(OM_entry: OM_Interface):
 
 def MnfProcess(OM_entry: OM_Interface):
     # Sets MB_ID and mnf_ID on first use 
-    OM_ID = '10152'
-    OM_ID_hex = 0x00010152
-    NewID = 0x02
+    # OM_ID = '11000'
+    OM_ID_hex = 0x00010113
+    NewID = 3
 
-    OM_entry.slave_id = 0x55
+    OM_entry.slave_id = 0x85
     OM_entry._Cmd_SetMnfID(ID=OM_ID_hex)
     time.sleep(3)
 
     Example_GetSetDevID(OM_entry, ID=NewID)
     OM_entry.slave_id = NewID
     time.sleep(3)
-
+    return
     
     FWID_rd_res = OM_entry.Data_GetFW_ID()
     logger.info(f"FW_ID: {FWID_rd_res}")
