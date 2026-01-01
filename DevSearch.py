@@ -1,10 +1,6 @@
 from pymodbus.client import ModbusSerialClient
 from pymodbus.exceptions import ModbusIOException
-from pymodbus.server import StartSerialServer, ModbusSerialServer
-from pymodbus.datastore import ModbusSequentialDataBlock, ModbusDeviceContext, ModbusServerContext
-from pymodbus import ModbusDeviceIdentification
-from pymodbus.framer import FramerRTU
-import asyncio
+
 
 if __name__ == "__main__":
     client = ModbusSerialClient(
@@ -13,7 +9,7 @@ if __name__ == "__main__":
         bytesize=8,
         parity='N',
         stopbits=1,
-        timeout=0.5
+        timeout=0.01,
     )
 
     if not client.connect():
@@ -21,7 +17,10 @@ if __name__ == "__main__":
         exit()
 
     found_devices = []
-    for unit_id in [0x01, 0x02, 0x03, 0x04, 0x05, 0x55]:  # Modbus addresses typically range from 1 to 247
+    lst = [i for i in range(0, 86)]
+    # lst.extend([i for i in range(20, 30)])
+    # lst.append(0x55)
+    for unit_id in lst:  # Modbus addresses typically range from 1 to 247
         try:
             print(f'Trying to read {unit_id=}')
             # Attempt to read a register (e.g., holding register 0)
