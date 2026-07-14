@@ -8,11 +8,13 @@ import time
 import numpy as np
 from PIL import Image
 import cv2 
+from pathlib import Path
 
 # ResetSrc
-SLAVE_ADDR = 5
-COMM_PORT   = "COM4"
+SLAVE_ADDR = 0x06
+COMM_PORT   = "COM5"
 BAUDRATE    = 500000
+# 0x0800 1158
 
 
 path_log = 'MNF_data/'
@@ -39,12 +41,9 @@ def main():
         time.sleep(0.2)
         logger.info("Modbus worker started")
 
-        # Example_UploadSecondHalfAndGo(OM_entry=OM_entry, filename='FWs/OMMCU_v03_02_01_r.bin')
         time.sleep(0.3)
         # MnfFix(OM_entry=OM_entry)
         # MnfProcess(OM_entry=OM_entry)
-        # GRI_tst(OM_entry=OM_entry)
-        # Example_GetSSData(OM_entry)
         Playground(OM_entry)
 
         res = OM_entry.Data_ReadTemperature()
@@ -63,8 +62,13 @@ def Playground(OM_entry: OM_Interface):
     # return
     # Example_UploadFW(OM_entry)
     # Example_FixValid(OM_entry)
+    # Example_CheckValid(OM_entry)
     # Example_GetSetDevID(OM_entry, ID=4)
     # Example_CheckCRC(OM_entry)
+    # Example_HSCalib(OM_entry=OM_entry)
+    # return
+
+
     FWID_rd_res = OM_entry.Data_GetFW_ID()
     logger.info(f"FW_ID: {FWID_rd_res}")
 
@@ -77,28 +81,35 @@ def Playground(OM_entry: OM_Interface):
     # Example_SetPref(OM_entry)
     # Example_GetFW_ID(OM_entry)
 
-    # return
 
     # OM_entry.slave_id = 2
     # Example_GetGAM(OM_entry=OM_entry)
 
     res = OM_entry.Cmd_SSTake()
-    res = OM_entry.Cmd_HSTake()
-    time.sleep(0.3)
+    ret = OM_entry.Data_GetCommandStatus()
+    logger.info(f"Status: {ret}")
 
-    res = OM_entry.Cmd_GAMTake()
+    ret = OM_entry.Data_GetSS()
+    logger.info(f"SunSens: {ret}")
     time.sleep(0.1)
-    ret = OM_entry.Data_GetGAM()
-    logger.info(f"GAM: {ret}")
+    
+    # res = OM_entry.Cmd_GAMTake()
+    # time.sleep(0.1)
+    # ret = OM_entry.Data_GetGAM()
+    # logger.info(f"GAM: {ret}")
         
     Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=False) # , save_path='Logs/Photos/temp_SS.png'
-    Example_Read_Thermal_Photo(OM_entry=OM_entry, save_path='Logs/Photos/temp_HS.png', photo_take=True)
-    
-    # Example_Read_Thermal_Cluster(OM_entry=OM_entry, photo_take=False)
+
+    # res = OM_entry.Cmd_HSTake()
+    # Example_TestCalibApplication(OM_entry=OM_entry)
+    # time.sleep(0.3)
+
+    # Example_Read_Thermal_Photo(OM_entry=OM_entry, save_path='Logs/Photos/temp_HS', photo_take=False)
+    # Example_Read_Thermal_Cluster(OM_entry=OM_entry)
+
     # res = OM_entry.Data_GetGAM()
-    Example_GetGAM(OM_entry)
-
-
+    # Example_GetGAM(OM_entry)
+    
     # ret = OM_entry.Data_GetSSMtxSet()
     # logger.info(f"SS_MTX_Set: {ret}")
 
@@ -108,6 +119,8 @@ def Playground(OM_entry: OM_Interface):
 
     # Example_UploadFW(OM_entry=OM_entry)
     # Example_UploadFWAndCopyAndGo(OM_entry=OM_entry)
+
+    # OM_entry.Cmd_SaveSettingsToFlash()
 
 
 def MnfFix(OM_entry: OM_Interface):
@@ -169,16 +182,17 @@ def MnfFix(OM_entry: OM_Interface):
 def MnfProcess(OM_entry: OM_Interface):
     # Sets MB_ID and mnf_ID on first use 
     # OM_ID = '11000'
-    OM_ID_hex = 0x00010113
-    NewID = 3
+    OM_ID_hex = 0x00010137
+    NewID = 6
 
-    OM_entry.slave_id = 0x85
-    OM_entry._Cmd_SetMnfID(ID=OM_ID_hex)
-    time.sleep(3)
-
+    OM_entry.slave_id = 0
     Example_GetSetDevID(OM_entry, ID=NewID)
     OM_entry.slave_id = NewID
     time.sleep(3)
+    
+    OM_entry._Cmd_SetMnfID(ID=OM_ID_hex)
+    time.sleep(3)
+
     return
     
     FWID_rd_res = OM_entry.Data_GetFW_ID()
@@ -235,6 +249,12 @@ def Example_Read_Grayscale_Photo(OM_entry: OM_Interface, save_path='OM_img.png',
         # plt.show(block=False)
         # plt.pause(0.001)
 
+        # plt.figure()
+        # plt.imshow(img8, cmap="gray")
+        # surf = ax.plot_surface(X, Y, img8, cmap='viridis', edgecolor='none')
+        # plt.show(block=False)
+        # plt.pause(0.001)
+
         plt.figure()
         plt.imshow(image, cmap="gray")
         plt.title("SunSens Image")
@@ -261,7 +281,9 @@ def Example_Read_Thermal_Photo(OM_entry: OM_Interface, save_path=None, photo_tak
     if photo_take:
         OM_entry.Cmd_HSTake()
         time.sleep(0.3)
-
+        res = OM_entry.Data_GetHS()
+        logger.info(f"HS_read_data result: {res}")
+        
     # Read the full 32x24 thermal image
     result = OM_entry.Read_Thermal_Photo()
     if "error" in result:
@@ -276,11 +298,16 @@ def Example_Read_Thermal_Photo(OM_entry: OM_Interface, save_path=None, photo_tak
         plt.title("Thermal Image")
         plt.show(block=False)
         plt.pause(0.001)
-
+        # Save to given path and apply current timestamp
         if save_path:
             img8 = (image / image.max() * 255).astype(np.uint8)
             img_pil = Image.fromarray(img8, mode="L")
-            img_pil.save(save_path)
+            
+            save_path += f"_{time.strftime('%Y%m%d_%H%M%S')}.png"
+            output_file = Path(save_path)
+            output_file.parent.mkdir(parents=True, exist_ok=True)
+
+            img_pil.save(output_file)
 
 def Example_Read_Thermal_Cluster(OM_entry: OM_Interface, photo_take=False):
     if photo_take:
@@ -336,6 +363,57 @@ def Example_GetSetDevID(OM_entry: OM_Interface, ID: int):
 
     OM_entry.Cmd_ForceReboot()
     time.sleep(0.2)
+
+
+def Example_TestCalibApplication(OM_entry: OM_Interface):
+    OM_entry.Cmd_SetupHSCalUsage(state=0x00)
+    time.sleep(0.05)
+
+    res = OM_entry.Cmd_HSTake()
+    time.sleep(0.3)
+
+    res = OM_entry.Data_GetHS()
+    # logger.info(f"HS_read_data result {res}")
+    amount = res['data']['Amount']
+    amount = np.min([amount, len(res['data']['data'])])
+    no_cal_vectors = np.array(res['data']['data'][:amount])
+    no_cal_mean_vct = np.mean(no_cal_vectors, axis=0)
+    logger.info(f"HS mean vector (no cal): [%.4f, %.4f, %.4f] " % (no_cal_mean_vct[0], no_cal_mean_vct[1], no_cal_mean_vct[2]))
+    
+    OM_entry.Cmd_SetupHSCalUsage(state=0x01)
+    time.sleep(0.05)
+
+    res = OM_entry.Cmd_HSTake()
+    time.sleep(0.3)
+  
+    res = OM_entry.Data_GetHS()
+    # logger.info(f"HS_read_data result {res}")
+    amount = res['data']['Amount']
+    amount = np.min([amount, len(res['data']['data'])])
+    vectors = np.array(res['data']['data'][:amount])
+    mean_vct = np.mean(vectors, axis=0)
+    logger.info(f"HS mean vector (w/cal): [%.4f, %.4f, %.4f] " % (mean_vct[0], mean_vct[1], mean_vct[2]))
+
+        
+    v1 = np.array( no_cal_mean_vct  )
+    v2 = np.array( mean_vct )
+
+    dot_prod = np.dot(v1, v2)
+
+    norm_v1 = np.linalg.norm(v1)
+    norm_v2 = np.linalg.norm(v2)
+
+    cos_theta = np.clip(dot_prod / (norm_v1 * norm_v2), -1.0, 1.0)
+
+    angle_rad = np.arccos(cos_theta)
+    angle_deg = np.degrees(angle_rad)
+    logger.info(f"\n\nVector error, degrees: {angle_deg:.3f}\n\n")
+
+    # Example_Read_Thermal_Photo(OM_entry=OM_entry, save_path='Logs/Photos/temp_HS', photo_take=False)
+    # Example_Read_Thermal_Cluster(OM_entry=OM_entry, photo_take=False)
+    np.set_printoptions(precision=3, floatmode='fixed', suppress=True)
+    print(no_cal_vectors)
+    print(vectors)
 
 
 def Example_GetFW_ID(OM_entry: OM_Interface):
@@ -492,6 +570,7 @@ def Example_SetPref(OM_entry: OM_Interface):
     CB_resp = OM_entry.CANWrp_ReadCB()
     logger.info(f"Current CB: {CB_resp}")
 
+# Boot to M, erase R, upload R, boot to R, chec, stay in R
 def Example_UploadSecondHalfAndGo(OM_entry: OM_Interface, filename='FWs/OMMCU_v03_01_05_r.bin'):
     logger.info("Starting firmware upload example...")
     logger.info(f"Getting FW_ID and checking validity...")
@@ -551,14 +630,15 @@ def Example_UploadSecondHalfAndGo(OM_entry: OM_Interface, filename='FWs/OMMCU_v0
     Example_GetFW_ID(OM_entry)
     Example_CheckValid(OM_entry)
 
+# Check for CRC in R (must corresponde to M), do CopyAndGo
 def Example_CopyAndGo(OM_entry: OM_Interface):
     Example_CheckValid(OM_entry=OM_entry)
     Example_GetFW_ID(OM_entry)
 
-    resp = OM_entry.Blt_CheckCRC(1, file_path='FWs/OMMCU_v03_01_03_m.bin')
+    resp = OM_entry.Blt_CheckCRC(1, file_path='FWs/OMMCU_v03_05_04_m.bin')
     logger.info(f"Check valid of MainFW in img_1 res: {resp}")
 
-    resp = OM_entry.Blt_CopyAndGo(file_path='FWs/OMMCU_v03_01_03_m.bin')
+    resp = OM_entry.Blt_CopyAndGo(file_path='FWs/OMMCU_v03_05_04_m.bin')
     logger.info(f"Copy and go res: {resp}")
 
     time.sleep(1)
@@ -567,6 +647,7 @@ def Example_CopyAndGo(OM_entry: OM_Interface):
     Example_GetFW_ID(OM_entry)
 
 
+# Boot to M, erase R, upload R, boot to R, chec, boot to 0
 def Example_UploadFW(OM_entry: OM_Interface):
     logger.info("Starting firmware upload example...")
     logger.info(f"Getting FW_ID and checking validity...")
@@ -585,7 +666,7 @@ def Example_UploadFW(OM_entry: OM_Interface):
     resp = OM_entry.Blt_Restart()
     logger.info(f"Restart resp: {resp}")
 
-    time.sleep(1)
+    time.sleep(2)
 
     # Prepare second half for uploading: erase second half
     logger.info("Erasing second half of flash memory...")
@@ -600,7 +681,7 @@ def Example_UploadFW(OM_entry: OM_Interface):
 
     # Upload image
     logger.info("Uploading firmware...")
-    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v03_01_05_r.bin')
+    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v03_05_04_r.bin')
     logger.info(f"FW_upload ret: {ret}")
 
     # Check both validities and restart
@@ -642,6 +723,7 @@ def Example_UploadFW(OM_entry: OM_Interface):
 
 
 
+# Load M fw to R area, do CopyAndGo
 def Example_UploadFWAndCopyAndGo(OM_entry: OM_Interface):
     Example_GetFW_ID(OM_entry)
     Example_CheckValid(OM_entry)
@@ -661,12 +743,12 @@ def Example_UploadFWAndCopyAndGo(OM_entry: OM_Interface):
     Example_GetFW_ID(OM_entry)
     Example_CheckValid(OM_entry)
 
-    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v03_01_03_m.bin')
+    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v03_05_04_m.bin')
     logger.info(f"FW_upload ret: {ret}")
 
     Example_CheckValid(OM_entry)
 
-    resp = OM_entry.Blt_CopyAndGo(file_path='FWs/OMMCU_v03_01_03_m.bin')
+    resp = OM_entry.Blt_CopyAndGo(file_path='FWs/OMMCU_v03_05_04_m.bin')
     logger.info(f"Copy and go res: {resp}")
     
     time.sleep(5)
@@ -674,7 +756,35 @@ def Example_UploadFWAndCopyAndGo(OM_entry: OM_Interface):
     Example_CheckValid(OM_entry)
     Example_GetFW_ID(OM_entry)
 
+def Example_HSCalib(OM_entry: OM_Interface):
+    # save_set_res = OM_entry.Cmd_SaveSettingsToFlash()
+    # logger.info(f"{save_set_res=}")
+
+    # load_set_res = OM_entry.Cmd_LoadSettingsFromFlash()
+    # logger.info(f"{load_set_res=}")
+
+    # reset_ss_set_res = OM_entry.Cmd_ResetSetupSS()
+    # logger.info(f"{reset_ss_set_res=}")
+
+    # reset_ss_cal_res = OM_entry.Cmd_ResetCalibSS()
+    # logger.info(f"{reset_ss_cal_res=}")
+
+    # reset_hs_set_res = OM_entry.Cmd_ResetSetupHS()
+    # logger.info(f"{reset_hs_set_res=}")
+
+    # rst_GAM_res = OM_entry.Cmd_ResetSetupGAM()
+    # logger.info(f"{rst_GAM_res=}")
+
+    # load_cal_HS_res = OM_entry.Cmd_LoadHSCalibFromFlash()
+    # logger.info(f"{load_cal_HS_res=}")
+
+    reset_hs_cal_res = OM_entry.Cmd_HSCalibReset()
+    logger.info(f"{reset_hs_cal_res=}")
+
+    save_hs_cal_res = OM_entry.Cmd_SaveHSCalibToFlash()
+    logger.info(f"{save_hs_cal_res=}")
+
+    return
 
 if __name__ == "__main__":
     main()
-

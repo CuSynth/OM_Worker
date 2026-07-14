@@ -8,7 +8,7 @@ import time
 from main import *
 
 # UART (modbus) setup
-COM_PORT   = "COM9"
+COM_PORT   = "COM4"
 COM_BAUD    = 500000
 
 # CAN bus port
@@ -23,14 +23,15 @@ def main():
     OM_mnf_TestProcess()
 
 
+
 def OM_mnf_ReleaseProcess():
     try:
-        slaveID = 0x01
-        mnfID = 0x00010100
+        slaveID = 0xAB
+        mnfID = 0x8010ABCD
         MnfID_undertest = f'{mnfID:05x}'
 
         # Prepare newly manufactured OM:
-        worker, OM_entry = OM_comm_ini(log_Path=mnf_log_path, log_name=log_name, UseCANBUS=False, slave_ID=slaveID)
+        worker, OM_entry = OM_comm_ini(log_Path=mnf_log_path, log_name=log_name, UseCANBUS=False, slave_ID=0x55)
         
         # Force set new ID
         OM_mnf_ForceSetID(OM_entry=OM_entry, ID=slaveID)    
@@ -47,8 +48,8 @@ def OM_mnf_ReleaseProcess():
 
 def OM_mnf_TestProcess():
     try:
-        slaveID = 0x01
-        mnfID = 0x00010100
+        slaveID = 0x06
+        mnfID = 0x8010ABCD
         MnfID_undertest = f'{mnfID:05x}'
 
         # Test any OM
@@ -69,7 +70,7 @@ def OM_mnf_ForceSetID(OM_entry: OM_Interface, ID: int):
 
     OM_entry.Cmd_ForceReboot()
     OM_entry.slave_id = ID
-    time.sleep(0.2)
+    time.sleep(0.5)
 
 
 def OM_mnf_ForceSetMnfID(OM_entry: OM_Interface, ID: int):
@@ -91,9 +92,10 @@ def OM_periph_tst(OM_entry: OM_Interface, path_to_work:str, MnfID_undertest:str)
 
     Example_GetGAM(OM_entry)
 
-    Example_Read_Grayscale_Photo(OM_entry=OM_entry, save_path=path_to_work+'/Photo/SS_'+MnfID_undertest+'.png', photo_take=True)
+    # Example_Read_Grayscale_Photo(OM_entry=OM_entry, save_path=path_to_work+'Photo/SS_'+MnfID_undertest+'.png', photo_take=True)
 
-    Example_Read_Thermal_Photo(OM_entry=OM_entry, save_path=path_to_work+'/Photo/HS_'+MnfID_undertest+'.png', photo_take=True)
+    OM_entry.Set_Cluster_Bound_Value(hot_px=100, earth_min=30, earth_min_area=5)
+    Example_Read_Thermal_Photo(OM_entry=OM_entry, save_path=path_to_work+'Photo/HS_'+MnfID_undertest+'.png', photo_take=True)
 
     ret = OM_entry.Data_GetSSMtxSet()
     logger.info(f"SS_MTX_Set: {ret}")

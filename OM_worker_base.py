@@ -33,6 +33,23 @@ class OM_Interface:
 
     def send_modbus(self, command, blocking=True, timeout=5, silent=False):
         return self.modbus_worker.send_request(command, blocking=blocking, timeout=timeout, silent=silent)
+    
+
+    def Cmd_SaveSettingsToFlash(self):
+        pack = OM_BuildCmd_SaveSet()
+        registers = PackToRegisters(pack)
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
+        logger.debug(f"Sending Save setup command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        return response
+        
+    def Cmd_LoadSettingsFromFlash(self):
+        pack = OM_BuildCmd_LoadSet()
+        registers = PackToRegisters(pack)
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
+        logger.debug(f"Sending Load setup command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        return response
 
     def Cmd_ForceReboot(self):
         pack = OM_BuildCmd_Reboot()
@@ -58,6 +75,22 @@ class OM_Interface:
         response = self.modbus_worker.send_request(command)
         return response
 
+    def Cmd_ResetSetupSS(self):
+        pack = OM_BuildCmd_ResetSetupSS()
+        registers = PackToRegisters(pack)
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
+        logger.debug(f"Sending Reset setup SS command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        return response
+
+    def Cmd_ResetCalibSS(self):
+        pack = OM_BuildCmd_ResetCalSS()
+        registers = PackToRegisters(pack)
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
+        logger.debug(f"Sending Reset calib SS command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        return response
+
     def Cmd_HSTake(self):
         pack = OM_build_cmd_HS_take()
         registers = PackToRegisters(pack)
@@ -66,12 +99,51 @@ class OM_Interface:
         response = self.modbus_worker.send_request(command)
         return response
 
+    def Cmd_ResetSetupHS(self):
+        pack = OM_BuildCmd_ResetSetupHS()
+        registers = PackToRegisters(pack)
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
+        logger.debug(f"Sending Reset setup HS command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        return response
+
+    def Cmd_SaveHSCalibToFlash(self):
+        pack = OM_BuildCmd_SaveHSCal()
+        registers = PackToRegisters(pack)
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
+        logger.debug(f"Sending Save HS calib command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        return response
+
+    def Cmd_LoadHSCalibFromFlash(self):
+        pack = OM_BuildCmd_LoadHSCal()
+        registers = PackToRegisters(pack)
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
+        logger.debug(f"Sending Save HS calib command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        return response
+
+    def Cmd_HSCalibReset(self):
+        pack = OM_BuildCmd_ResetHSCal()
+        registers = PackToRegisters(pack)
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
+        logger.debug(f"Sending Save HS calib command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        return response
 
     def Cmd_GAMTake(self):
         pack = OM_build_cmd_GAM_take()
         registers = PackToRegisters(pack)
         command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
         logger.debug(f"Sending SSTake command: {command.__dict__}")
+        response = self.modbus_worker.send_request(command)
+        return response
+
+    def Cmd_ResetSetupGAM(self):
+        pack = OM_BuildCmd_ResetSetupGAM()
+        registers = PackToRegisters(pack)
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_CMD_OFF, registers=registers)
+        logger.debug(f"Sending Reset setup GAM command: {command.__dict__}")
         response = self.modbus_worker.send_request(command)
         return response
 
@@ -122,6 +194,14 @@ class OM_Interface:
         logger.debug(f"Getting SS data: {command.__dict__}")
         if "data" in response:
             response["data"] = OM_SS_parse(response["data"])
+        return response
+    
+    def Data_GetHS(self, blocking=True, timeout=1, amount=8):
+        command = self._build_command(ModbusRequestType.READ, OM_HS_REG_ADDR+OM_HS_DATA_OFF, count=(int)((2+2+amount*3*4)/2)) # Count (2) + status(2) + 2 vectors (2 x 3 x 4(float)) 
+        response = self.modbus_worker.send_request(command, blocking=blocking, timeout=timeout)
+        logger.debug(f"Getting HS data: {command.__dict__}")
+        if "data" in response:
+            response["data"] = OM_HS_parse(response["data"], amount)
         return response
 
 
@@ -223,6 +303,13 @@ class OM_Interface:
             response["data"] = parsed_data
         return response
 
+    def Data_GetTime(self):
+        command = self._build_command(ModbusRequestType.READ, OM_SS_REG_ADDR+20, count=8)
+        response = self.modbus_worker.send_request(command, blocking=True, timeout=1)
+        logger.debug(f"Sending time readout: {command.__dict__}")
+        if "data" in response:
+            response["data"] = [ (response["data"][0] << 8 & 0xFF00) | (response["data"][0] >> 8 & 0x00FF), (response["data"][2] << 8 & 0xFF00) | (response["data"][2] >> 8 & 0x00FF) ]
+        return response        
 
 
     def Blt_SetPref(self, pref: int = 0):
@@ -641,7 +728,7 @@ class OM_Interface:
     
     def Set_Cluster_Bound_Value(self, hot_px:int, earth_min:int, earth_min_area:int):
         logger.info(f"Setting parameters to HS cluster boundaries: \n\t- Hot pixel temperature: {hot_px}; \n\t- Earth min temperature: {earth_min}; \n\t-Earth min area: {earth_min_area}")
-        pack = list(struct.pack('<HHH', hot_px, earth_min, earth_min_area))
+        pack = list(struct.pack('<HhH', hot_px, earth_min, earth_min_area))
         registers = PackToRegisters(pack)
 
         command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_HS_REG_ADDR+OM_HS_ALGO_SET_OFF+OM_HS_CLUST_BOUND_OFF, registers=registers)
@@ -658,7 +745,40 @@ class OM_Interface:
         if "data" in response:
             response["data"] = OM_HS_DataParse(response["data"])
         return response
+    
+    def Data_GetCommandStatus(self):
+        command = self._build_command(ModbusRequestType.READ, OM_CMD_REG_ADDR+OM_STATUS_OFF, count=2)
+        response = self.modbus_worker.send_request(command, timeout=1)
+        logger.debug(f"Getting last command num and status: {command.__dict__}")
+        
+        if "data" in response:
+            response["data"] = OM_CmdStat_parse(response["data"])
+        return response
+    
+    def Cmd_SetupHSCalUsage(self, state=0x01):
+        command = self._build_command(ModbusRequestType.READ, OM_HS_REG_ADDR+OM_HS_ALGO_SET_OFF+OM_HS_ALGO_SET_BTFLG_OFF, count=2)
+        response = self.modbus_worker.send_request(command, timeout=1)
+        if not "data" in response:
+            logger.debug(f"Unable to get current bitflag of HS algo setup")
+            return None
+        
+        bitflag =  response['data'][0]
+        
+        if state == 0x00:
+            bitflag &= ~HS_ALGO_SET_USE_CAL
+        else:
+            bitflag |= HS_ALGO_SET_USE_CAL
+
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_HS_REG_ADDR+OM_HS_ALGO_SET_OFF+OM_HS_ALGO_SET_BTFLG_OFF, registers=[bitflag])
+        response = self.modbus_worker.send_request(command, timeout=1)
+        logger.debug(f"Writing new bitflag into HS algo setup: {command.__dict__}")
+        
+        if not "data" in response:
+            logger.debug(f"Unable to write new bitflag to HS algo setup")
+            return None
+        
+        response["data"] = OM_CmdStat_parse(response["data"])
+        return response
 
 if __name__ == '__main__':
     print("Nothing to run here..")
-

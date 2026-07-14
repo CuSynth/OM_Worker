@@ -10,7 +10,7 @@ from main import *
 
 
 # UART (modbus) setup
-COM_PORT   = "COM7"
+COM_PORT   = "COM4"
 COM_BAUD    = 500000
 
 # CAN bus port
@@ -30,7 +30,7 @@ def OM_TestProcess():
 
     try:
         # Установка ID для опроса
-        slave_ID = 0x01
+        slave_ID = 0x85
 
         # True для использования Rs-485
         if True:

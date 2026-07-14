@@ -83,8 +83,13 @@ class ModbusWorker(threading.Thread, OMCommInterface):
 
             except queue.Empty:
                 continue
+            except KeyboardInterrupt:
+                logger.warning(f"{self.__class__.__name__} caught KeyboardInterrupt. Stopping gracefully.")
+                self.running = False
+                break
             except Exception as e:
-                logger.exception(f"Modbus worker error: {e}")
+                logger.exception(f"{self.__class__.__name__} error: {e}")
+
 
         self.disconnect()
 

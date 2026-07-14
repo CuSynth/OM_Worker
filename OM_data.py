@@ -4,14 +4,26 @@ import numpy as np
 from enum import Enum
 from OM_registers import *
 
+OM_CMD_SAVE_SET     = 0x01
+OM_CMD_LOAD_SET     = 0x02
 
 OM_CMD_SET_DEV_ID   = 0x13
 OM_CMD_REBOOT       = 0xFE
 
 OM_CMD_TAKE_SS      = 0x21
-OM_CMD_TAKE_HS      = 0x31
-OM_CMD_TAKE_GAM     = 0x41
+OM_CMD_EMUL_SS      = 0x22
+OM_CMD_RST_SET_SS   = 0x23
+OM_CMD_RST_CAL_SS   = 0x24
 
+OM_CMD_TAKE_HS      = 0x31
+OM_CMD_EMUL_HS      = 0x32
+OM_CMD_RST_SET_HS   = 0x33
+OM_CMD_SAVE_HSCAL   = 0x34
+OM_CMD_LOAD_HS_CAL  = 0x35
+OM_CMD_RESET_HS_CAL = 0x36
+
+OM_CMD_TAKE_GAM     = 0x41
+OM_CMD_RST_SET_GAM  = 0x44
 
 OM_SS_PHOTO_WDTH    = 480
 OM_SS_PHOTO_HGHT    = 480
@@ -24,24 +36,47 @@ OM_HS_PHOTO_HGHT    = 24
 OM_HS_PX_SIZE       = 4
 
 
-def OM_BuildCmd_Reboot():
-    cmd = OM_CMD_REBOOT
-    DLen = 0x01
-    data = [0x01, 0x30]
-    
-    pack = [(cmd & 0xFF), ((cmd >> 8) & 0xFF), (DLen & 0xFF), ((DLen >> 8) & 0xFF)] 
-    pack.extend(data)
+HS_ALGO_SET_USE_CAL = (0x0001 << 0)
 
-    return pack
+def OM_BuildCmd_SaveSet():
+    return [OM_CMD_SAVE_SET]
+
+def OM_BuildCmd_LoadSet():
+    return [OM_CMD_LOAD_SET]
+
+def OM_BuildCmd_Reboot():
+    return [OM_CMD_REBOOT]
 
 def OM_build_cmd_SS_take():
     return [OM_CMD_TAKE_SS]
 
+def OM_BuildCmd_ResetSetupSS():
+    return [OM_CMD_RST_SET_SS]
+
+def OM_BuildCmd_ResetCalSS():
+    return [OM_CMD_RST_CAL_SS]
+
 def OM_build_cmd_HS_take():
     return [OM_CMD_TAKE_HS]
 
+def OM_BuildCmd_ResetSetupHS():
+    return [OM_CMD_RST_SET_HS]
+
+def OM_BuildCmd_SaveHSCal():
+    return [OM_CMD_SAVE_HSCAL]
+
+def OM_BuildCmd_LoadHSCal():
+    return [OM_CMD_LOAD_HS_CAL]
+
+def OM_BuildCmd_ResetHSCal():
+    return [OM_CMD_RESET_HS_CAL]
+
 def OM_build_cmd_GAM_take():
     return [OM_CMD_TAKE_GAM]
+
+def OM_BuildCmd_ResetSetupGAM():
+    return [OM_CMD_RST_SET_GAM]
+
 
 def OM_build_set_DevID(ID : int = 2):
     cmd = OM_CMD_SET_DEV_ID
@@ -84,6 +119,35 @@ def OM_SS_parse(registers: list = []):
                 "X_pt" : floats[3], "Y_pt" : floats[4], 
                 "Zen" : floats[5], "Azt" : floats[6],
                 "Status" : status}
+
+def OM_HS_parse(registers: list = [], vector_cnt_exp=15):
+    if(len(registers) != (1+1+vector_cnt_exp*3*2)):
+        return None
+
+    vect_amount = ( (registers[0] << 8) & 0xFF00 | (registers[0] >> 8) & 0x00FF )
+    status =  ( (registers[1] << 8) & 0xFF00 | (registers[1] >> 8) & 0x00FF )
+    # Structure is as folows: u16 - vect amount total, u16 - status, vector_cnt_exp x vectors (3xfloat each)
+    hex_array = bytearray()
+    for i in range(2, len(registers), 2):
+        double_reg = (registers[i] << 16) | (registers[i+1])
+        hex_array.extend(struct.pack(">I", double_reg))
+
+        
+    floats = struct.unpack("<"+"f"*3*vector_cnt_exp, hex_array)
+
+    floats = np.array(floats).reshape((-1,3))
+    return {"Amount" : vect_amount, "status" : status, "data" : floats}
+
+
+def OM_CmdStat_parse(registers: list = []):
+    if len(registers) != 2:
+        return None
+
+    cmd = struct.unpack("<H", struct.pack(">H",registers[0]))[0]
+    stat = struct.unpack("<H", struct.pack(">H",registers[1]))[0]
+
+    return {"Last command" : (f"0x%04x" % cmd), "status" : (f"0x%04x" % stat)}
+
 
 
 def OM_GAM_parse(registers: list):
