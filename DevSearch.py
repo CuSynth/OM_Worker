@@ -4,7 +4,7 @@ from pymodbus.exceptions import ModbusIOException
 
 if __name__ == "__main__":
     client = ModbusSerialClient(
-        port='COM4',
+        port='COM5',
         baudrate=500000,
         bytesize=8,
         parity='N',
@@ -17,7 +17,8 @@ if __name__ == "__main__":
         exit()
 
     found_devices = []
-    lst = [i for i in range(0, 86)]
+    lst = [i for i in range(1, 10)] + [0x55]
+    
     # lst.extend([i for i in range(20, 30)])
     # lst.append(0x55)
     for unit_id in lst:  # Modbus addresses typically range from 1 to 247
