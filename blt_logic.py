@@ -196,7 +196,7 @@ def OM_build_CopyAndGo(FW_path: str):
         return None
 
 
-    size = file_info['FW_size']
+    size = file_info['FW_size']-4
     cmd = FLASH_CMD_DO_COPY_AND_GO
     crc = file_info['CRC']
 
@@ -234,7 +234,7 @@ def find_crc_and_size(file_content):
             if addr == int.from_bytes(file_content[addr:addr+4], 'little')*4:
                 Size_match = True
             break
-        prev_crc = calculated_crc
+        prev_crc: int = calculated_crc
         calculated_crc: int = crc32_stm(file_content[addr:addr + 4], crc=calculated_crc) & 0xFFFFFFFF # Update CRC
 
     return {
