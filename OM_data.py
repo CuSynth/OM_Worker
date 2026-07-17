@@ -1,8 +1,10 @@
 import struct
 import ctypes
+from typing import Any
 import numpy as np
 from enum import Enum
 from OM_registers import *
+import pandas as pd
 
 OM_CMD_SAVE_SET     = 0x01
 OM_CMD_LOAD_SET     = 0x02
@@ -45,7 +47,7 @@ def OM_BuildCmd_LoadSet():
     return [OM_CMD_LOAD_SET]
 
 def OM_BuildCmd_Reboot():
-    return [OM_CMD_REBOOT]
+    return [OM_CMD_REBOOT, 0x00, 0x01, 0x00, 0x01, 0x30]
 
 def OM_build_cmd_SS_take():
     return [OM_CMD_TAKE_SS]
@@ -121,22 +123,45 @@ def OM_SS_parse(registers: list = []):
                 "Status" : status}
 
 def OM_HS_parse(registers: list = [], vector_cnt_exp=15):
-    if(len(registers) != (1+1+vector_cnt_exp*3*2)):
-        return None
+    new_FW = True
 
-    vect_amount = ( (registers[0] << 8) & 0xFF00 | (registers[0] >> 8) & 0x00FF )
-    status =  ( (registers[1] << 8) & 0xFF00 | (registers[1] >> 8) & 0x00FF )
-    # Structure is as folows: u16 - vect amount total, u16 - status, vector_cnt_exp x vectors (3xfloat each)
-    hex_array = bytearray()
-    for i in range(2, len(registers), 2):
-        double_reg = (registers[i] << 16) | (registers[i+1])
-        hex_array.extend(struct.pack(">I", double_reg))
+    if new_FW:
+        if(len(registers) != (1+1+vector_cnt_exp*3*1)):
+            return None
 
-        
-    floats = struct.unpack("<"+"f"*3*vector_cnt_exp, hex_array)
+        vect_amount = ( (registers[0] << 8) & 0xFF00 | (registers[0] >> 8) & 0x00FF )
+        status =  ( (registers[1] << 8) & 0xFF00 | (registers[1] >> 8) & 0x00FF )
+        # Structure is as folows: u16 - vect amount total, u16 - status, vector_cnt_exp x vectors (3xfloat each)
+        hex_array = bytearray()
+        for i in range(2, len(registers)):
+            hex_array.extend(struct.pack(">H", registers[i]))
 
-    floats = np.array(floats).reshape((-1,3))
+        int_16_arr = struct.unpack("<"+"h"*3*vector_cnt_exp, hex_array)
+
+        floats = np.array(int_16_arr).reshape((-1,3)) / (0x01 << 14)
+    else:
+        if(len(registers) != (1+1+vector_cnt_exp*3*2)):
+            return None
+
+        vect_amount = ( (registers[0] << 8) & 0xFF00 | (registers[0] >> 8) & 0x00FF )
+        status =  ( (registers[1] << 8) & 0xFF00 | (registers[1] >> 8) & 0x00FF )
+        # Structure is as folows: u16 - vect amount total, u16 - status, vector_cnt_exp x vectors (3xfloat each)
+        hex_array = bytearray()
+        for i in range(2, len(registers), 2):
+            double_reg = (registers[i] << 16) | (registers[i+1])
+            hex_array.extend(struct.pack(">I", double_reg))
+
+            
+        floats = struct.unpack("<"+"f"*3*vector_cnt_exp, hex_array)
+
+        floats = np.array(floats).reshape((-1,3))
     return {"Amount" : vect_amount, "status" : status, "data" : floats}
+
+def OM_HSCalLineAddr(line:int):
+    if line < 0 or line > 24:
+        return OM_HS_CAL_ADDR
+
+    return OM_HS_CAL_ADDR + line
 
 
 def OM_CmdStat_parse(registers: list = []):
@@ -274,8 +299,34 @@ def OM_HS_DataParse(registers: list = []):
         hex_array.extend(struct.pack(">H", vect_regs[i]))
     vect_read = int(len(hex_array)/3/4)
 
-    components = struct.unpack(f'<{"f" * vect_read * 3}', hex_array)
+    components: tuple[Any, ...] = struct.unpack(f'<{"f" * vect_read * 3}', hex_array)
     vectors = np.array(components).reshape((-1,3))
 
     return {"Total vectors found" : total_cnt, "Vectors" : vectors}
 
+
+
+
+def load_calibrated_vectors(csv_path, width=OM_HS_PHOTO_WDTH, height=OM_HS_PHOTO_HGHT):
+    """Reads the calibration CSV (Var1=Y, Var2=X, Var3=x, Var4=y, Var5=z) into (height,width) grids."""
+    df = pd.read_csv(csv_path, header=0, names=["Y", "X", "vx", "vy", "vz"])
+
+    X = np.full((height, width), np.nan)
+    Y = np.full((height, width), np.nan)
+    Z = np.full((height, width), np.nan)
+
+    for _, row in df.iterrows():
+        yi = int(row["Y"])
+        xi = int(row["X"])
+        if 0 <= yi < height and 0 <= xi < width:
+            X[yi, xi] = row["vx"]
+            Y[yi, xi] = row["vy"]
+            Z[yi, xi] = row["vz"]
+        else:
+            print(f"Warning: pixel (Y={yi}, X={xi}) is out of bounds for {height}x{width}, skipped.")
+
+    n_missing = int(np.isnan(X).sum())
+    if n_missing:
+        print(f"Warning: {n_missing} pixel(s) missing in calibration CSV (left as NaN).")
+
+    return X, Y, Z

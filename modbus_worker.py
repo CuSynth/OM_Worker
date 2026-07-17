@@ -41,6 +41,7 @@ class ModbusWorker(threading.Thread, OMCommInterface):
             parity=self.parity,
             bytesize=self.bytesize,
             timeout=self.timeout,
+            retries=0
         )
 
 
@@ -93,7 +94,7 @@ class ModbusWorker(threading.Thread, OMCommInterface):
 
         self.disconnect()
 
-    def handle_request(self, request, silent=False):
+    def handle_request(self, request, silent=True):
         try:
             if request.type == ModbusRequestType.READ:
                 result = self.client.read_holding_registers(

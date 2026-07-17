@@ -9,6 +9,7 @@ import numpy as np
 from PIL import Image
 import cv2 
 from pathlib import Path
+from OM_data import OM_HS_PHOTO_HGHT, OM_HS_PHOTO_WDTH, load_calibrated_vectors
 
 # ResetSrc
 SLAVE_ADDR = 0x06
@@ -40,9 +41,9 @@ def main():
         interace_worker.start()
         time.sleep(0.2)
         logger.info("Modbus worker started")
-
-        time.sleep(0.3)
+        # Fix for incorrec MnfID
         # MnfFix(OM_entry=OM_entry)
+
         # MnfProcess(OM_entry=OM_entry)
         Playground(OM_entry)
 
@@ -68,7 +69,7 @@ def Playground(OM_entry: OM_Interface):
     # Example_HSCalib(OM_entry=OM_entry)
     # return
 
-
+    # General:
     FWID_rd_res = OM_entry.Data_GetFW_ID()
     logger.info(f"FW_ID: {FWID_rd_res}")
 
@@ -79,37 +80,39 @@ def Playground(OM_entry: OM_Interface):
     logger.info(f"MnfID: {ret}")
 
     # Example_SetPref(OM_entry)
-    # Example_GetFW_ID(OM_entry)
-
-
-    # OM_entry.slave_id = 2
-    # Example_GetGAM(OM_entry=OM_entry)
-
-    res = OM_entry.Cmd_SSTake()
-    ret = OM_entry.Data_GetCommandStatus()
-    logger.info(f"Status: {ret}")
-
-    ret = OM_entry.Data_GetSS()
-    logger.info(f"SunSens: {ret}")
-    time.sleep(0.1)
     
-    # res = OM_entry.Cmd_GAMTake()
-    # time.sleep(0.1)
-    # ret = OM_entry.Data_GetGAM()
-    # logger.info(f"GAM: {ret}")
-        
-    Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=False) # , save_path='Logs/Photos/temp_SS.png'
+    # Sun sensor
+    # res = OM_entry.Cmd_SSTake()
+    # ret = OM_entry.Data_GetCommandStatus()
+    # logger.info(f"Status: {ret}")
 
+    # ret = OM_entry.Data_GetSS()
+    # logger.info(f"SunSens: {ret}")
+    # time.sleep(0.1)
+    
+    # Example_Read_Grayscale_Photo(OM_entry=OM_entry, photo_take=False) # , save_path='Logs/Photos/temp_SS.png'
+    
+    # Horizon sensor
     # res = OM_entry.Cmd_HSTake()
-    # Example_TestCalibApplication(OM_entry=OM_entry)
     # time.sleep(0.3)
+    # res = OM_entry.Data_GetHS()
+    # logger.info("HS result: ")
+    # logger.info(res["data"])
 
     # Example_Read_Thermal_Photo(OM_entry=OM_entry, save_path='Logs/Photos/temp_HS', photo_take=False)
     # Example_Read_Thermal_Cluster(OM_entry=OM_entry)
 
-    # res = OM_entry.Data_GetGAM()
+    # Example_TestCalibApplication(OM_entry=OM_entry)
+    # time.sleep(0.3)
+
+    # GAM sensors
+    # res = OM_entry.Cmd_GAMTake()
+    # time.sleep(0.1)
+    # ret = OM_entry.Data_GetGAM()
+    # logger.info(f"GAM: {ret}")
     # Example_GetGAM(OM_entry)
     
+    # Config RW
     # ret = OM_entry.Data_GetSSMtxSet()
     # logger.info(f"SS_MTX_Set: {ret}")
 
@@ -117,16 +120,27 @@ def Playground(OM_entry: OM_Interface):
     # logger.info(f"SS_MTX_Set: {ret}")
     # Example_GetFW_ID(OM_entry)
 
+    # FW testing
     # Example_UploadFW(OM_entry=OM_entry)
     # Example_UploadFWAndCopyAndGo(OM_entry=OM_entry)
 
-    # OM_entry.Cmd_SaveSettingsToFlash()
+    # Calibration testing
+    # Usage flag
+    OM_entry.Cmd_SetupHSCalUsage(state=0x01)
+    OM_entry.Cmd_SaveSettingsToFlash()
+
+    # Upload
+    Example_UploadHSCalFromCSV(OM_entry=OM_entry)
+    OM_entry.Cmd_SaveHSCalibToFlash()
+
+    # Example_TestCalibRW(OM_entry)
+    # Example_CompareHSCalToFile(OM_entry=OM_entry, tolerance=6e-5)
 
 
 def MnfFix(OM_entry: OM_Interface):
     # Fixes MNF ID of an OM
 
-    Example_UploadSecondHalfAndGo(OM_entry=OM_entry, filename='FWs/OMMCU_v03_01_06_r.bin')
+    Example_UploadSecondHalfAndGo(OM_entry=OM_entry, filename='FWs/OMMCU_v03_06_00_r.bin')
     OM_ID_hex = 0x00010176
     OM_entry._Cmd_SetMnfID(ID=OM_ID_hex)
     time.sleep(0.5)
@@ -160,7 +174,7 @@ def MnfFix(OM_entry: OM_Interface):
 
     # Upload image
     logger.info("Uploading firmware...")
-    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v03_01_03_r.bin')
+    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v03_06_00_r.bin')
     logger.info(f"FW_upload ret: {ret}")
 
     # Check both validities and restart
@@ -181,8 +195,8 @@ def MnfFix(OM_entry: OM_Interface):
 
 def MnfProcess(OM_entry: OM_Interface):
     # Sets MB_ID and mnf_ID on first use 
-    # OM_ID = '11000'
-    OM_ID_hex = 0x00010137
+    OM_ID = '010000'
+    OM_ID_hex = 0x00010000
     NewID = 6
 
     OM_entry.slave_id = 0
@@ -193,8 +207,15 @@ def MnfProcess(OM_entry: OM_Interface):
     OM_entry._Cmd_SetMnfID(ID=OM_ID_hex)
     time.sleep(3)
 
-    return
-    
+    # Calibration testing
+    # Usage flag
+    OM_entry.Cmd_SetupHSCalUsage(state=0x01)
+    OM_entry.Cmd_SaveSettingsToFlash()
+
+    # Upload
+    Example_UploadHSCalFromCSV(OM_entry=OM_entry)
+    OM_entry.Cmd_SaveHSCalibToFlash()
+
     FWID_rd_res = OM_entry.Data_GetFW_ID()
     logger.info(f"FW_ID: {FWID_rd_res}")
 
@@ -357,7 +378,7 @@ def Example_GetSetDevID(OM_entry: OM_Interface, ID: int):
     
     set_DevID_result = OM_entry.Cmd_SetDevID(ID)
     logger.info(f"OM_set_DevID result: {set_DevID_result}")
-    
+
     DevID_rd_res = OM_entry.Data_GetDevID()
     logger.info(f"Current DevID result: {DevID_rd_res}")
 
@@ -415,6 +436,57 @@ def Example_TestCalibApplication(OM_entry: OM_Interface):
     print(no_cal_vectors)
     print(vectors)
 
+def Example_TestCalibRW(OM_entry: OM_Interface):
+    calib = np.zeros((OM_HS_PHOTO_HGHT, OM_HS_PHOTO_WDTH,3), dtype=np.int16)
+    use_test_data = True
+
+    if use_test_data:
+        calib = np.ones((OM_HS_PHOTO_HGHT, OM_HS_PHOTO_WDTH,3), dtype=np.int16)
+
+        rows = 24
+        cols = 32
+        slice = arr = np.fromfunction(lambda i, j: ((i << 8) & 0xFF00) | (j & 0x00FF), (rows, cols), dtype=np.uint16).astype(np.int16)
+        calib[:,:,0] = slice
+        calib[:,:,1] = slice * -1
+
+    else:
+        ...
+
+    OM_entry.Data_UploadHSCalib(data=calib)
+    ret = OM_entry.Data_ReadHSCalib()
+    print(ret["data"])
+
+def Example_UploadHSCalFromCSV(OM_entry:OM_Interface):
+    HS_cal = np.zeros((24, 32, 3))
+    X, Y, Z, = load_calibrated_vectors(csv_path='calibrationVector.csv')
+    HS_cal[:,:,0] = X
+    HS_cal[:,:,1] = Y
+    HS_cal[:,:,2] = Z
+
+    HS_cal_quant = (HS_cal*(0x01 << 14)).astype(np.int16)
+    OM_entry.Data_UploadHSCalib(data=HS_cal_quant)
+    OM_entry.Cmd_SaveHSCalibToFlash()
+
+def Example_CompareHSCalToFile(OM_entry:OM_Interface, tolerance=1e-2, print_idx:bool=True):
+    HS_cal = np.zeros((24, 32, 3))
+    X, Y, Z, = load_calibrated_vectors(csv_path='calibrationVector.csv')
+    HS_cal[:,:,0] = X
+    HS_cal[:,:,1] = Y
+    HS_cal[:,:,2] = Z
+
+    real_cal = ret = OM_entry.Data_ReadHSCalib()["data"].astype(np.float32) / (0x01 << 14)
+
+    if np.allclose(HS_cal, real_cal, atol=tolerance):
+        logger.info("Arrays are close enough")
+    else:
+        indices = np.argwhere(~np.isclose(HS_cal, real_cal, atol=tolerance))
+        logger.error(f"{len(indices)} mismatch fond in arrays")
+        if print_idx:
+            logger.error(f"Mismatch indices:")
+            for idx in indices:
+                logger.error(f"\t {idx}")
+
+
 
 def Example_GetFW_ID(OM_entry: OM_Interface):
     FWID_rd_res = OM_entry.Data_GetFW_ID()
@@ -468,12 +540,12 @@ def Example_CheckValid(OM_entry: OM_Interface):
 def Example_CheckCRC(OM_entry: OM_Interface):
     Example_CheckValid(OM_entry)
 
-    img_0_file = 'FWs/OMMCU_v03_01_03_m.bin'
+    img_0_file = 'FWs/OMMCU_v03_06_00_m.bin'
     logger.info(f"Checking CRC for img_0: {img_0_file}")
     resp = OM_entry.Blt_CheckCRC(0, file_path=img_0_file)
     logger.info(f"Check valid of img_0 res: {resp}")
 
-    img_1_file = 'FWs/OMMCU_v03_01_03_r.bin'
+    img_1_file = 'FWs/OMMCU_v03_06_00_r.bin'
     logger.info(f"Checking CRC for img_0: {img_1_file}")
     resp = OM_entry.Blt_CheckCRC(1, file_path=img_1_file)
     logger.info(f"Check valid of img_1 res: {resp}")
@@ -571,7 +643,7 @@ def Example_SetPref(OM_entry: OM_Interface):
     logger.info(f"Current CB: {CB_resp}")
 
 # Boot to M, erase R, upload R, boot to R, chec, stay in R
-def Example_UploadSecondHalfAndGo(OM_entry: OM_Interface, filename='FWs/OMMCU_v03_01_05_r.bin'):
+def Example_UploadSecondHalfAndGo(OM_entry: OM_Interface, filename='FWs/OMMCU_v03_06_00_r.bin'):
     logger.info("Starting firmware upload example...")
     logger.info(f"Getting FW_ID and checking validity...")
     
@@ -635,10 +707,10 @@ def Example_CopyAndGo(OM_entry: OM_Interface):
     Example_CheckValid(OM_entry=OM_entry)
     Example_GetFW_ID(OM_entry)
 
-    resp = OM_entry.Blt_CheckCRC(1, file_path='FWs/OMMCU_v03_05_04_m.bin')
+    resp = OM_entry.Blt_CheckCRC(1, file_path='FWs/OMMCU_v03_06_00_m.bin')
     logger.info(f"Check valid of MainFW in img_1 res: {resp}")
 
-    resp = OM_entry.Blt_CopyAndGo(file_path='FWs/OMMCU_v03_05_04_m.bin')
+    resp = OM_entry.Blt_CopyAndGo(file_path='FWs/OMMCU_v03_06_00_m.bin')
     logger.info(f"Copy and go res: {resp}")
 
     time.sleep(1)
@@ -681,7 +753,7 @@ def Example_UploadFW(OM_entry: OM_Interface):
 
     # Upload image
     logger.info("Uploading firmware...")
-    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v03_05_04_r.bin')
+    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v03_06_00_r.bin')
     logger.info(f"FW_upload ret: {ret}")
 
     # Check both validities and restart
@@ -743,12 +815,12 @@ def Example_UploadFWAndCopyAndGo(OM_entry: OM_Interface):
     Example_GetFW_ID(OM_entry)
     Example_CheckValid(OM_entry)
 
-    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v03_05_04_m.bin')
+    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v03_06_00_m.bin')
     logger.info(f"FW_upload ret: {ret}")
 
     Example_CheckValid(OM_entry)
 
-    resp = OM_entry.Blt_CopyAndGo(file_path='FWs/OMMCU_v03_05_04_m.bin')
+    resp = OM_entry.Blt_CopyAndGo(file_path='FWs/OMMCU_v03_06_00_m.bin')
     logger.info(f"Copy and go res: {resp}")
     
     time.sleep(5)
