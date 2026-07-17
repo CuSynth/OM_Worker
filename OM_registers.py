@@ -31,6 +31,9 @@ OM_DEV_ID_LEN       = 1
 OM_GIT_HASH_OFF     = 32
 OM_GIT_HASH_LEN     = 4
 
+# Time synchro setup
+OM_TIME_SYNC_ADDR   = 0x1100
+
 # Sun sensor registers
 OM_SS_REG_ADDR      = 0x2000
 OM_SS_DIRECT_ADDR   = (OM_ADDR_DIRECT_CMD_FLAG | OM_SS_REG_ADDR)

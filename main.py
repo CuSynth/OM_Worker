@@ -126,15 +126,21 @@ def Playground(OM_entry: OM_Interface):
 
     # Calibration testing
     # Usage flag
-    OM_entry.Cmd_SetupHSCalUsage(state=0x01)
-    OM_entry.Cmd_SaveSettingsToFlash()
+    # OM_entry.Cmd_SetupHSCalUsage(state=0x01)
+    # OM_entry.Cmd_SaveSettingsToFlash()
 
     # Upload
-    Example_UploadHSCalFromCSV(OM_entry=OM_entry)
-    OM_entry.Cmd_SaveHSCalibToFlash()
+    # Example_UploadHSCalFromCSV(OM_entry=OM_entry)
+    # OM_entry.Cmd_SaveHSCalibToFlash()
 
+    # Chec calib HS
     # Example_TestCalibRW(OM_entry)
     # Example_CompareHSCalToFile(OM_entry=OM_entry, tolerance=6e-5)
+
+
+    # Time synchro tests
+    Example_TimeSynchro(OM_entry=OM_entry)
+
 
 
 def MnfFix(OM_entry: OM_Interface):
@@ -857,6 +863,16 @@ def Example_HSCalib(OM_entry: OM_Interface):
     logger.info(f"{save_hs_cal_res=}")
 
     return
+
+
+def Example_TimeSynchro(OM_entry: OM_Interface):
+    time_sync_ret = OM_entry.Cmd_SetTime()
+    logger.info(f"{time_sync_ret=}")
+
+
+    time_Read_ret = OM_entry.Data_GetOMTime()
+    logger.info(f"{time_Read_ret=}")
+
 
 if __name__ == "__main__":
     main()

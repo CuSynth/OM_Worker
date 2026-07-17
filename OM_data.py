@@ -5,6 +5,8 @@ import numpy as np
 from enum import Enum
 from OM_registers import *
 import pandas as pd
+from datetime import datetime, timezone
+from modbus_worker import RegistersToPack, PackToRegisters
 
 OM_CMD_SAVE_SET     = 0x01
 OM_CMD_LOAD_SET     = 0x02
@@ -90,18 +92,15 @@ def OM_build_set_DevID(ID : int = 2):
 
     return pack
 
-
-
-
-def OM_FWVer_parse(Pack: list = []):
+def OM_FWVer_parse(Pack: bytes):
     if len(Pack) != OM_FW_VER_LEN * 2:
         return None
     
-    patch, minor, major  = struct.unpack("<HHH", bytes(Pack))
+    patch, minor, major  = struct.unpack("<HHH", Pack)
     return  f"{major}.{minor}.{patch}"
     # return {"Major" : major, "Minor" : minor, "Patch" : patch}
 
-def OM_MnfID(Pack: list):
+def OM_MnfID(Pack: bytes):
     return f"{Pack[3]:02x}{Pack[2]:02x}{Pack[1]:02x}{Pack[0]:02x}"
 
 
@@ -304,9 +303,6 @@ def OM_HS_DataParse(registers: list = []):
 
     return {"Total vectors found" : total_cnt, "Vectors" : vectors}
 
-
-
-
 def load_calibrated_vectors(csv_path, width=OM_HS_PHOTO_WDTH, height=OM_HS_PHOTO_HGHT):
     """Reads the calibration CSV (Var1=Y, Var2=X, Var3=x, Var4=y, Var5=z) into (height,width) grids."""
     df = pd.read_csv(csv_path, header=0, names=["Y", "X", "vx", "vy", "vz"])
@@ -330,3 +326,32 @@ def load_calibrated_vectors(csv_path, width=OM_HS_PHOTO_WDTH, height=OM_HS_PHOTO
         print(f"Warning: {n_missing} pixel(s) missing in calibration CSV (left as NaN).")
 
     return X, Y, Z
+
+
+
+def build_time_set_command():
+    y2k_utc = datetime(2000, 1, 1, tzinfo=timezone.utc)
+    now_utc = datetime.now(timezone.utc)
+    seconds_since_2000 = (now_utc - y2k_utc).total_seconds()
+    msec = now_utc.microsecond // 1000
+
+    data = struct.pack("<IH", int(seconds_since_2000), int(msec))
+
+    return list(data)
+    
+def OM_parse_time(registers: list[int]):
+    if(len(registers) != 3):
+        return None
+
+    registers = [(((reg & 0x00FF) << 8) | ((reg >> 8) & 0x00FF)) for reg in registers]
+    plain_bytes = b''.join([reg.to_bytes(2, 'little') for reg in registers])
+    ts2000, msec = struct.unpack("<IH", plain_bytes)
+    
+    return {"Time": ts2000, "msec": msec}
+
+if __name__ == "__main__":
+    plain_bytes = build_time_set_command()
+    regs = PackToRegisters(plain_bytes)
+    print(OM_parse_time(regs))
+
+

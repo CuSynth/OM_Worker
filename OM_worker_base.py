@@ -10,6 +10,7 @@ from tqdm import tqdm
 from OM_comm_interface import *
 from modbus_worker import *
 
+
 class OM_Interface:
     def __init__(self, comm_worker, slave_id=1):
         self.modbus_worker = comm_worker
@@ -871,6 +872,33 @@ class OM_Interface:
             raw_bytes.extend(line_bytes)
         return {"data": cal, "raw": bytes(raw_bytes)}
 
-    
+    def Cmd_SetTime(self):
+        time_setup_pack = build_time_set_command()
+        registers = PackToRegisters(time_setup_pack)
+        
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_TIME_SYNC_ADDR, registers=registers)
+        response = self.modbus_worker.send_request(command, silent=True, timeout=5)
+        if self.command_dbg_print:
+            logger.debug(f"Write time into OM: {command.__dict__}")
+
+        if "error" in response:
+            logger.debug(f"Unable to write time to OM")
+            return {"error": response["error"]}
+   
+        return response
+
+    def Data_GetOMTime(self):
+        command = self._build_command(ModbusRequestType.READ, OM_TIME_SYNC_ADDR, count=3)
+        response = self.modbus_worker.send_request(command, timeout=1)
+        if self.command_dbg_print:
+            logger.debug(f"Getting last command num and status: {command.__dict__}")
+        
+        if "data" in response:
+            response["data"] = OM_parse_time(response["data"])
+        return response
+
+
+
+
 if __name__ == '__main__':
     print("Nothing to run here..")
