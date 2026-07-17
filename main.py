@@ -24,7 +24,7 @@ path_photo = path_log+'Photo/'
 def main():
     logger.add(path_log + "logging.log", level="DEBUG", rotation="5 MB", retention="4 week")
     logger.info("Application started")
-    
+    interace_worker = ModbusWorker(port=COMM_PORT, baudrate=BAUDRATE, stopbits=1, parity="N", bytesize=8, timeout=0.1)
     try:
         # True => use RS-485 bridge
         if True:
@@ -61,7 +61,6 @@ def main():
 def Playground(OM_entry: OM_Interface):
     # Example_GetSetDevID(OM_entry, ID=4)
     # return
-    # Example_UploadFW(OM_entry)
     # Example_FixValid(OM_entry)
     # Example_CheckValid(OM_entry)
     # Example_GetSetDevID(OM_entry, ID=4)
@@ -70,6 +69,8 @@ def Playground(OM_entry: OM_Interface):
     # return
 
     # General:
+    # OM_entry.Cmd_SetTime()
+
     FWID_rd_res = OM_entry.Data_GetFW_ID()
     logger.info(f"FW_ID: {FWID_rd_res}")
 
@@ -85,6 +86,7 @@ def Playground(OM_entry: OM_Interface):
     # res = OM_entry.Cmd_SSTake()
     # ret = OM_entry.Data_GetCommandStatus()
     # logger.info(f"Status: {ret}")
+    # time.sleep(0.1)
 
     # ret = OM_entry.Data_GetSS()
     # logger.info(f"SunSens: {ret}")
@@ -97,6 +99,7 @@ def Playground(OM_entry: OM_Interface):
     # time.sleep(0.3)
     # res = OM_entry.Data_GetHS()
     # logger.info("HS result: ")
+    # res["data"]['data'] = res["data"]['data'][:8]
     # logger.info(res["data"])
 
     # Example_Read_Thermal_Photo(OM_entry=OM_entry, save_path='Logs/Photos/temp_HS', photo_take=False)
@@ -139,8 +142,16 @@ def Playground(OM_entry: OM_Interface):
 
 
     # Time synchro tests
-    Example_TimeSynchro(OM_entry=OM_entry)
+    # Example_TimeSynchro(OM_entry=OM_entry)
 
+
+    # FW upload examples
+    # Upload to R, boot to R, check, boot to M
+    # Example_UploadFW_to_res(OM_entry=OM_entry)
+    # Upload to R, boot to R, check, stay in R
+    # Example_UploadSecondHalfAndGo(OM_entry=OM_entry, filename='FWs/OMMCU_v03_08_01_r.bin')
+    # Upload new to R, check, do CopyAndGo
+    Example_UploadFWAndCopyAndGo(OM_entry=OM_entry, filename='FWs/OMMCU_v03_08_01_m.bin')
 
 
 def MnfFix(OM_entry: OM_Interface):
@@ -709,29 +720,36 @@ def Example_UploadSecondHalfAndGo(OM_entry: OM_Interface, filename='FWs/OMMCU_v0
     Example_CheckValid(OM_entry)
 
 # Check for CRC in R (must corresponde to M), do CopyAndGo
-def Example_CopyAndGo(OM_entry: OM_Interface):
+def Example_CopyAndGo(OM_entry: OM_Interface, filename='FWs/OMMCU_v03_06_00_m.bin'):
+    logger.info("running CopyAndGo...")
+    logger.info("Getting FW_ID and checking validity...")
     Example_CheckValid(OM_entry=OM_entry)
     Example_GetFW_ID(OM_entry)
 
-    resp = OM_entry.Blt_CheckCRC(1, file_path='FWs/OMMCU_v03_06_00_m.bin')
+    logger.info("Verifying CRC...")
+    resp = OM_entry.Blt_CheckCRC(1, file_path=filename)
     logger.info(f"Check valid of MainFW in img_1 res: {resp}")
 
-    resp = OM_entry.Blt_CopyAndGo(file_path='FWs/OMMCU_v03_06_00_m.bin')
+    logger.info("Sending CopyAndGo command...")
+    resp = OM_entry.Blt_CopyAndGo(file_path=filename)
     logger.info(f"Copy and go res: {resp}")
 
-    time.sleep(1)
+    time.sleep(5)
 
+    logger.info("Getting FW_ID and checking validity...")
     Example_CheckValid(OM_entry=OM_entry)
     Example_GetFW_ID(OM_entry)
 
 
-# Boot to M, erase R, upload R, boot to R, chec, boot to 0
-def Example_UploadFW(OM_entry: OM_Interface):
+# Boot to M, erase R, upload R, boot to R, chec, boot to M
+def Example_UploadFW_to_res(OM_entry: OM_Interface):
     logger.info("Starting firmware upload example...")
     logger.info(f"Getting FW_ID and checking validity...")
     
     # Read FW info at startup: Current version, current sector, CRC checks
+    logger.info("Getting FW ID on start...")
     Example_GetFW_ID(OM_entry)
+    logger.info("Getting validity on start...")
     Example_CheckValid(OM_entry)
 
     # Boot into sector 0: select prefered
@@ -759,7 +777,7 @@ def Example_UploadFW(OM_entry: OM_Interface):
 
     # Upload image
     logger.info("Uploading firmware...")
-    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v03_06_00_r.bin')
+    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v03_08_01_r.bin')
     logger.info(f"FW_upload ret: {ret}")
 
     # Check both validities and restart
@@ -772,13 +790,17 @@ def Example_UploadFW(OM_entry: OM_Interface):
     # Check both validities after restart
     logger.info("Checking validity after restart...")
     Example_CheckValid(OM_entry)
+    logger.info("Getting FW ID after restart...")
     Example_GetFW_ID(OM_entry)
 
     # Boot into second FWW
-    logger.info("Setting pref to 1 and rebooting...")
+    logger.info("Setting pref to 1")
     ret = OM_entry.Blt_SetPref(pref=1)
     logger.info(f"Set_pref ret: {ret}")
+
+    logger.info("Rebooting")
     Example_Reboot(OM_entry)
+    time.sleep(2)
 
     # Check everything after reboot
     logger.info("Getting FW_ID and checking validity after update...")
@@ -802,37 +824,39 @@ def Example_UploadFW(OM_entry: OM_Interface):
 
 
 # Load M fw to R area, do CopyAndGo
-def Example_UploadFWAndCopyAndGo(OM_entry: OM_Interface):
+def Example_UploadFWAndCopyAndGo(OM_entry: OM_Interface, filename='FWs/OMMCU_v03_06_00_m.bin'):
+    logger.info("Running UploadFWAndCopyAndGo")
+
+    logger.info("Getting FW_ID and checking validity on run...")
     Example_GetFW_ID(OM_entry)
     Example_CheckValid(OM_entry)
 
+    logger.info("Setting pref to M...")
     ret = OM_entry.Blt_SetPref(pref=0)
     logger.info(f"Set_pref ret: {ret}")
 
+    logger.info("Rebooting...")
     resp = OM_entry.Blt_Restart()
     logger.info(f"Restart resp: {resp}")
-
     time.sleep(2)
 
+    logger.info("Erasing second half...")
     Example_EraseHalf(OM_entry)
-
     time.sleep(5)
 
+    logger.info("Getting FW_ID and checking validity...")
     Example_GetFW_ID(OM_entry)
     Example_CheckValid(OM_entry)
 
-    ret = OM_entry.Blt_UploadFW(image=1, file='FWs/OMMCU_v03_06_00_m.bin')
+    logger.info("Uploading new FW...")
+    ret = OM_entry.Blt_UploadFW(image=1, file=filename)
     logger.info(f"FW_upload ret: {ret}")
 
+    logger.info("Checking validity...")
     Example_CheckValid(OM_entry)
 
-    resp = OM_entry.Blt_CopyAndGo(file_path='FWs/OMMCU_v03_06_00_m.bin')
-    logger.info(f"Copy and go res: {resp}")
-    
-    time.sleep(5)
-
-    Example_CheckValid(OM_entry)
-    Example_GetFW_ID(OM_entry)
+    logger.info("Getting FW_ID and checking validity...")
+    Example_CopyAndGo(OM_entry=OM_entry, filename=filename)
 
 def Example_HSCalib(OM_entry: OM_Interface):
     # save_set_res = OM_entry.Cmd_SaveSettingsToFlash()

@@ -23,14 +23,14 @@ def RegistersToPack(registers: list) -> bytes:
     
 
 class ModbusWorker(threading.Thread, OMCommInterface):
-    def __init__(self, port, baudrate, stopbits, parity, bytesize, timeout=1):
+    def __init__(self, port, baudrate, stopbits, parity, bytesize, timeout=1.0):
         super().__init__()
         self.port = port
         self.baudrate = baudrate
         self.stopbits = stopbits
         self.parity = parity
         self.bytesize = bytesize
-        self.timeout = timeout
+        self.timeout: float = timeout
         self.request_queue = queue.Queue(maxsize=100)
         self.response_queue = queue.Queue()
         self.running = False

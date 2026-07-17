@@ -8,6 +8,8 @@ import pandas as pd
 from datetime import datetime, timezone
 from modbus_worker import RegistersToPack, PackToRegisters
 
+OM_TIME_TS2000_FROM_TS      = 946684800
+
 OM_CMD_SAVE_SET     = 0x01
 OM_CMD_LOAD_SET     = 0x02
 
@@ -114,30 +116,33 @@ def OM_SS_parse(registers: list = []):
         hex_array.extend(struct.pack(">I", double_reg))
     
     floats = struct.unpack("<fffffff", hex_array)
-    status = struct.unpack("<H", struct.pack(">H",registers[-2]))[0]
+    status = struct.unpack("<H", struct.pack(">H",registers[14]))[0]
+    
+    time = OM_parse_time(registers[16:])
 
     return {"X" : floats[0], "Y" : floats[1], "Z" : floats[2],
                 "X_pt" : floats[3], "Y_pt" : floats[4], 
                 "Zen" : floats[5], "Azt" : floats[6],
-                "Status" : status}
+                "Status" : status, "time" : time}
 
 def OM_HS_parse(registers: list = [], vector_cnt_exp=15):
     new_FW = True
-
+    time = "NotSupported"
     if new_FW:
-        if(len(registers) != (1+1+vector_cnt_exp*3*1)):
+        if(len(registers) != (1+1+vector_cnt_exp*3*1+4)):
             return None
 
         vect_amount = ( (registers[0] << 8) & 0xFF00 | (registers[0] >> 8) & 0x00FF )
         status =  ( (registers[1] << 8) & 0xFF00 | (registers[1] >> 8) & 0x00FF )
         # Structure is as folows: u16 - vect amount total, u16 - status, vector_cnt_exp x vectors (3xfloat each)
         hex_array = bytearray()
-        for i in range(2, len(registers)):
+        for i in range(2, len(registers)-4):
             hex_array.extend(struct.pack(">H", registers[i]))
 
         int_16_arr = struct.unpack("<"+"h"*3*vector_cnt_exp, hex_array)
-
         floats = np.array(int_16_arr).reshape((-1,3)) / (0x01 << 14)
+
+        time = OM_parse_time(registers[-4:-1])
     else:
         if(len(registers) != (1+1+vector_cnt_exp*3*2)):
             return None
@@ -154,7 +159,7 @@ def OM_HS_parse(registers: list = [], vector_cnt_exp=15):
         floats = struct.unpack("<"+"f"*3*vector_cnt_exp, hex_array)
 
         floats = np.array(floats).reshape((-1,3))
-    return {"Amount" : vect_amount, "status" : status, "data" : floats}
+    return {"Amount" : vect_amount, "status" : status, "data" : floats, "time" : time}
 
 def OM_HSCalLineAddr(line:int):
     if line < 0 or line > 24:
@@ -184,7 +189,7 @@ def OM_GAM_parse(registers: list):
     MAG_regs = registers[OM_MAG_DATA_OFF:OM_MAG_DATA_OFF+OM_MAG_DATA_LEN]
 
     hex_array = bytearray()
-    for i in range(0, OM_GA_DATA_LEN, 2):
+    for i in range(0, OM_GA_DATA_LEN-4, 2):
         double_reg = (GA_regs[i] << 16) | (GA_regs[i+1])
         hex_array.extend(struct.pack(">I", double_reg))
 
@@ -200,9 +205,10 @@ def OM_GAM_parse(registers: list):
     GA_stat  = struct.unpack("h", hex_array[26:28])[0]
     ret['GA_stat'] = GA_stat
 
+    ret['GA time'] = time = OM_parse_time(GA_regs[-4:-1])
 
     hex_array = bytearray()
-    for i in range(0, OM_MAG_DATA_LEN, 2):
+    for i in range(0, OM_MAG_DATA_LEN-4, 2):
         double_reg = (MAG_regs[i] << 16) | (MAG_regs[i+1])
         hex_array.extend(struct.pack(">I", double_reg))
 
@@ -214,7 +220,8 @@ def OM_GAM_parse(registers: list):
 
     MGM_stat  = struct.unpack("h", hex_array[14:16])[0]
     ret['MGM_stat'] = MGM_stat
-
+    
+    ret['MGM time'] = time = OM_parse_time(MAG_regs[-4:-1])
 
     return ret
 

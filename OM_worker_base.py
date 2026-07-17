@@ -217,8 +217,8 @@ class OM_Interface:
             response["data"] = OM_SS_parse(response["data"])
         return response
     
-    def Data_GetHS(self, blocking=True, timeout=1, amount=8):
-        command = self._build_command(ModbusRequestType.READ, OM_HS_REG_ADDR+OM_HS_DATA_OFF, count=(int)((2+2+amount*3*2)/2)) # Count (2) + status(2) + 2 vectors (2 x 3 x 4(float)) 
+    def Data_GetHS(self, blocking=True, timeout=1, amount=32):
+        command = self._build_command(ModbusRequestType.READ, OM_HS_REG_ADDR+OM_HS_DATA_OFF, count=(int)((2+2+amount*3*2+8)/2)) # Count (2) + status(2) + 2 vectors (2 x 3 x 4(float)) 
         response = self.modbus_worker.send_request(command, blocking=blocking, timeout=timeout)
         if self.command_dbg_print:
             logger.debug(f"Getting HS data: {command.__dict__}")
