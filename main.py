@@ -80,6 +80,11 @@ def Playground(OM_entry: OM_Interface):
     ret = OM_entry.Data_GetMnfID()
     logger.info(f"MnfID: {ret}")
 
+    OM_entry.Cmd_SetupSleepAllowed(0x01)
+    time.sleep(10)
+    OM_entry.Cmd_SetupSleepAllowed(0x00)
+    time.sleep(10)
+
     # Example_SetPref(OM_entry)
     
     # Sun sensor
@@ -151,7 +156,7 @@ def Playground(OM_entry: OM_Interface):
     # Upload to R, boot to R, check, stay in R
     # Example_UploadSecondHalfAndGo(OM_entry=OM_entry, filename='FWs/OMMCU_v03_08_01_r.bin')
     # Upload new to R, check, do CopyAndGo
-    Example_UploadFWAndCopyAndGo(OM_entry=OM_entry, filename='FWs/OMMCU_v03_08_01_m.bin')
+    # Example_UploadFWAndCopyAndGo(OM_entry=OM_entry, filename='FWs/OMMCU_v03_08_01_m.bin')
 
 
 def MnfFix(OM_entry: OM_Interface):

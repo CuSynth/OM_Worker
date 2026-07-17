@@ -898,7 +898,22 @@ class OM_Interface:
         return response
 
 
+    def Cmd_SetupSleepAllowed(self, state):
+        if state == 0x00:
+            bitflag = 0x00
+        else:
+            bitflag = 0x01
 
+        command = self._build_command(ModbusRequestType.WRITE_MULTY, OM_CMD_REG_ADDR+OM_SLEEP_FLG_OFF , registers=[bitflag])
+        response = self.modbus_worker.send_request(command, timeout=1)
+        if self.command_dbg_print:
+            logger.debug(f"Writing new sleep cfg: {command.__dict__}")
+        
+        if "error" in response:
+            logger.debug(f"Unable to write new sleep cfg flag")
+            return {"error": response["error"]}
+            
+        return response
 
 if __name__ == '__main__':
     print("Nothing to run here..")

@@ -28,6 +28,9 @@ OM_TEMP_LEN         = 3
 OM_DEV_ID_OFF       = 30
 OM_DEV_ID_LEN       = 1
 
+OM_SLEEP_FLG_OFF    = 31
+OM_SLEEP_FLG_LEN    = 1
+
 OM_GIT_HASH_OFF     = 32
 OM_GIT_HASH_LEN     = 4
 
